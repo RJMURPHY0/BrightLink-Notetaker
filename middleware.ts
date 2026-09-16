@@ -72,6 +72,11 @@ export async function middleware(request: NextRequest) {
     // redirect above would bounce them to /login before their route ran. Each
     // of these verifies its own bearer via getBearerUser().
     pathname.startsWith('/api/voice-training') ||
+    // The CRM ticks action items off from its Home page with a bearer token,
+    // and the browser's CORS preflight carries no auth at all. The route
+    // verifies the bearer itself, answers 401 without one, and still applies
+    // canAccessRecording(). Exactly this route, nothing else under recordings.
+    /^\/api\/recordings\/[^/]+\/summary$/.test(pathname) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/icon') ||

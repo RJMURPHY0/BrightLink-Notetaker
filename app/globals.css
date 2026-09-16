@@ -446,3 +446,16 @@
     margin-left: auto;
   }
 }
+
+/* An action item opened from the CRM's Home. The same orange outline and pulse
+   the CRM draws when it jumps to something ([data-ftc-flash] in its index.css),
+   so arriving here feels like the same app. */
+.action-item-flash {
+  outline: 2px solid #f6941c;
+  outline-offset: 4px;
+  animation: action-item-flash-pulse 0.9s ease-out 2;
+}
+@keyframes action-item-flash-pulse {
+  0% { box-shadow: 0 0 0 10px rgb(246 148 28 / 0.35); }
+  100% { box-shadow: 0 0 0 0 rgb(246 148 28 / 0); }
+}

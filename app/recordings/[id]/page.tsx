@@ -31,7 +31,17 @@ function formatDate(date: Date) {
 
 
 
-export default async function RecordingPage({ params }: { params: { id: string } }) {
+export default async function RecordingPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { action?: string | string[] };
+}) {
+  // ?action=<index> arrives from the CRM's Home ("Open" on one action item):
+  // the notes scroll to that item and flash it. Anything else is ignored.
+  const actionParam = Array.isArray(searchParams?.action) ? searchParams?.action[0] : searchParams?.action;
+  const highlightActionIndex = actionParam && /^\d{1,3}$/.test(actionParam) ? Number(actionParam) : null;
   await ensureSchema();
   // withDbRetry + no catch: a transient DB blip must surface the error boundary
   // (retry UI), not swallow into null → notFound() → a false 404 for a meeting
@@ -216,6 +226,7 @@ export default async function RecordingPage({ params }: { params: { id: string }
                 <EditableAINotes
                   recordingId={recording.id}
                   recordingTitle={recording.title}
+                  highlightActionIndex={highlightActionIndex}
                   initialSummary={{
                     overview:    recording.summary.overview,
                     keyPoints:   points,

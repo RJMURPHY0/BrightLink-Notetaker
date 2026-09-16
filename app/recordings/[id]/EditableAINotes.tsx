@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { TopicSection } from '@/lib/ai';
 import { useActionItems } from './ActionItemsContext';
 import DueDatePicker from './DueDatePicker';
@@ -187,12 +187,36 @@ export default function EditableAINotes({
   recordingId,
   recordingTitle,
   initialSummary,
+  highlightActionIndex = null,
 }: {
   recordingId:    string;
   recordingTitle: string;
   initialSummary: AISummary;
+  /** From ?action=<index>: scroll to this action item and flash it once. */
+  highlightActionIndex?: number | null;
 }) {
   const actionItems = useActionItems();
+  const [flashIndex, setFlashIndex] = useState<number | null>(null);
+
+  // Opened from the CRM on one action item: bring it into view and outline it,
+  // the same orange flash the CRM uses when it jumps to something. Runs once;
+  // an index past the end (the item was deleted since) does nothing.
+  useEffect(() => {
+    if (highlightActionIndex === null || highlightActionIndex >= actionItems.items.length) return;
+    let clear: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-action-index="${highlightActionIndex}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setFlashIndex(highlightActionIndex);
+      clear = setTimeout(() => setFlashIndex(null), 2600);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (clear) clearTimeout(clear);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightActionIndex]);
   const focus       = useTranscriptFocus();
   const [data,         setData]        = useState<AISummary>(initialSummary);
   const [editing,      setEditing]     = useState<Section | null>(null);
@@ -398,7 +422,11 @@ export default function EditableAINotes({
             {actionItems.items.map((item, i) => {
               const done = actionItems.checked.has(i);
               return (
-                <li key={i} className="flex items-start gap-3">
+                <li
+                  key={i}
+                  data-action-index={i}
+                  className={`flex items-start gap-3 rounded-md ${flashIndex === i ? 'action-item-flash' : ''}`}
+                >
                   <button
                     type="button"
                     onClick={() => actionItems.toggleChecked(i)}
