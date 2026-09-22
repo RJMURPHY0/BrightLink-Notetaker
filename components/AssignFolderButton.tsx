@@ -2,14 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Folder, Check } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+import { Folder, Check, Search } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 interface Folder { id: string; name: string }
 
@@ -23,9 +17,13 @@ export default function AssignFolderButton({
   folders: Folder[];
 }) {
   const [saving, setSaving] = useState(false);
+  const [open, setOpen]     = useState(false);
+  const [query, setQuery]   = useState('');
   const router = useRouter();
 
   const assign = async (folderId: string | null) => {
+    setOpen(false);
+    setQuery('');
     setSaving(true);
     try {
       await fetch(`/api/recordings/${recordingId}`, {
@@ -39,9 +37,13 @@ export default function AssignFolderButton({
     }
   };
 
+  const filtered = query
+    ? folders.filter(f => f.name.toLowerCase().includes(query.toLowerCase()))
+    : folders;
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQuery(''); }}>
+      <PopoverTrigger asChild>
         <button
           type="button"
           disabled={saving}
@@ -58,33 +60,58 @@ export default function AssignFolderButton({
             <Folder className="w-4 h-4" />
           )}
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        {currentFolderId && (
-          <>
-            <DropdownMenuItem onSelect={() => assign(null)} className="text-xs text-ftc-mid">
-              Remove from folder
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        {folders.length === 0 && (
-          <p className="px-2 py-1.5 text-xs text-ftc-mid">No folders yet — create one above</p>
-        )}
-        {folders.map((f) => (
-          <DropdownMenuItem
-            key={f.id}
-            onSelect={() => assign(f.id)}
-            className={`text-xs gap-2 ${f.id === currentFolderId ? 'text-brand' : ''}`}
-          >
-            <Folder className="w-3 h-3 flex-shrink-0" />
-            {f.name}
-            {f.id === currentFolderId && (
-              <Check className="w-3 h-3 ml-auto text-brand" />
-            )}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-56 p-0">
+        {/* Search — filter folders by name */}
+        <div className="p-2 border-b border-surface-border">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-muted pointer-events-none" />
+            <input
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search folders..."
+              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg bg-surface-raised border border-surface-border text-ftc-gray placeholder:text-surface-muted focus:outline-none focus:border-brand"
+            />
+          </div>
+        </div>
+
+        <div className="max-h-56 overflow-y-auto py-1">
+          {currentFolderId && !query && (
+            <>
+              <button
+                type="button"
+                onClick={() => assign(null)}
+                className="w-full text-left px-3 py-2 text-xs text-ftc-mid hover:bg-surface-raised transition-colors touch-manipulation"
+              >
+                Remove from folder
+              </button>
+              <div className="my-1 h-px bg-surface-border" />
+            </>
+          )}
+
+          {folders.length === 0 ? (
+            <p className="px-3 py-2.5 text-xs text-ftc-mid">No folders yet — create one above</p>
+          ) : filtered.length === 0 ? (
+            <p className="px-3 py-2.5 text-xs text-ftc-mid text-center">No matches</p>
+          ) : (
+            filtered.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => assign(f.id)}
+                className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-surface-raised transition-colors touch-manipulation ${
+                  f.id === currentFolderId ? 'text-brand' : 'text-ftc-gray'
+                }`}
+              >
+                <Folder className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate flex-1">{f.name}</span>
+                {f.id === currentFolderId && <Check className="w-3.5 h-3.5 ml-auto text-brand flex-shrink-0" />}
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
