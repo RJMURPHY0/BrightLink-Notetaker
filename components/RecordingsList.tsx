@@ -508,7 +508,7 @@ export default function RecordingsList({
               </SpotlightCard>
 
               {!isSelecting && (
-                <div className="absolute top-1/2 right-3 -translate-y-1/2 flex flex-col gap-1 items-center">
+                <div className="absolute top-1/2 right-3 -translate-y-1/2 z-20 flex flex-col gap-1 items-center">
                   <AssignFolderButton
                     recordingId={rec.id}
                     currentFolderId={rec.folderId}
