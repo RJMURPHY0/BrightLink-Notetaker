@@ -1,4 +1,4 @@
-# Dream Consolidation — FTC Transcribe — 2026-07-20
+# Dream Consolidation — BrightLink Notetaker — 2026-07-20
 
 ## Summary
 Verified 20 active topic files consolidating N8N workflow automation, Prisma DB patterns, and multi-tenant auth architecture. Confirmed DB pooler gotchas and cost-optimization patterns. Memory stable with minimal new signals in last 7 days.

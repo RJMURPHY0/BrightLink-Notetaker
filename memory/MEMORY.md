@@ -1,4 +1,4 @@
-# FTC Transcribe Memory Index
+# BrightLink Notetaker Memory Index
 
 Last consolidated: 2026-07-22 22:45 UTC (phases 1-6: full verification; 20 topic files indexed, patterns stable)
 
