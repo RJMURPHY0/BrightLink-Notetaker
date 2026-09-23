@@ -18,29 +18,29 @@ model Folder {
 }
 
 model Recording {
-  id                 String    @id @default(cuid())
-  title              String    @default("")
-  createdAt          DateTime  @default(now())
-  duration           Int       @default(0)
-  fileSize           Int       @default(0)
-  mimeType           String    @default("")
-  audioPath          String    @default("")
-  status             String    @default("uploading")
-  source             String    @default("web")
-  meetingType        String    @default("general")
+  id              String    @id @default(cuid())
+  title           String    @default("")
+  createdAt       DateTime  @default(now())
+  duration        Int       @default(0)
+  fileSize        Int       @default(0)
+  mimeType        String    @default("")
+  audioPath       String    @default("")
+  status          String    @default("uploading")
+  source          String    @default("web")
+  meetingType     String    @default("general")
   // What the client believed it captured: "mic-sys" = your mic on the left,
   // the call on the right; "mono" = a single blended track. Diagnostics only.
   // Finalize detects the real layout from the audio itself, so an old client
   // or a wrong value here can never misroute diarisation.
-  channelLayout      String?
+  channelLayout   String?
   // Which conferencing service the call was on: teams | meet | zoom | webex |
   // slack | generic. Read from the shared surface's own title at capture time.
   // `source` stays 'web' | 'teams' for the existing list filter and search;
   // this carries the detail so a Google Meet call is not badged as Teams.
   // Null on in-person recordings and on anything recorded before this existed.
-  meetingProvider    String?
-  folderId           String?
-  userId             String?
+  meetingProvider String?
+  folderId        String?
+  userId          String?
   // The owner's Contacts organisation, stamped at create from getUserOrgId().
   // Denormalised deliberately: org membership is read over a raw SQL join into
   // another app's tables, and a per-row lookup on every list render is not
@@ -48,19 +48,34 @@ model Recording {
   // it was recorded, which is the correct semantics — a person changing
   // employer must not drag their old employer's meetings with them.
   // Null on rows recorded before this existed and on users with no org.
-  orgId              String?
+  orgId           String?
   // Soft delete: hidden from all lists immediately, hard-purged by cron after 30 days
-  deletedAt          DateTime?
+  deletedAt       DateTime?
+  // How the audio was captured: 'web' (the browser screen-share picker),
+  // 'extension' (the Chrome extension's one-click tab capture) or 'bot' (a
+  // Recall.ai bot that joined the call). Determines whether participant names
+  // are authoritative or inferred, and therefore whether the acoustic
+  // voice-ID resolver is allowed to overrule them. Null = recorded before
+  // this existed, treated as 'web'.
+  captureMethod   String?
+  // Recall.ai's id for the bot that recorded this call, when captureMethod is
+  // 'bot'. The join key for its webhooks.
+  recallBotId     String?   @unique
+  // The meeting URL a bot was sent to. Kept so a failed join can be retried
+  // without the user finding the link again.
+  meetingUrl      String?
+
   // Idempotency stamps — each side effect fires at most once per recording
   teamsNotifiedAt    DateTime?
   airtableBackedUpAt DateTime?
 
-  folder            Folder?            @relation(fields: [folderId], references: [id])
+  folder            Folder?              @relation(fields: [folderId], references: [id])
   chunks            ChunkBlob[]
   finalizeJob       FinalizeJob?
   transcript        Transcript?
   summary           Summary?
   speakerEmbeddings SpeakerEmbedding[]
+  participants      MeetingParticipant[]
 
   // deletedAt kept standalone for the 30-day purge cron (WHERE deletedAt < cutoff).
   // Composite indexes match the home/list query shape: scope by user/folder,
@@ -91,14 +106,14 @@ model TranscribePermission {
 // user rows override it. A null column means "inherit" (fall back to DEFAULT,
 // then the hardcoded default). liveFx = card motion / spotlight-glow effects.
 model UserSetting {
-  userId    String   @id @map("user_id")
-  liveFx    Boolean? @map("live_fx")
+  userId        String   @id @map("user_id")
+  liveFx        Boolean? @map("live_fx")
   // Consent to let the dictation app send short voice snippets here for
   // voiceprint training. Null = never answered, which resolves to OFF: the
   // desktop app keeps every recording on the device until this says otherwise.
   // One row read and written by BOTH apps, so the two toggles cannot drift.
   voiceTraining Boolean? @map("voice_training")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("user_settings")
 }
@@ -122,14 +137,14 @@ model ChunkBlob {
 }
 
 model FinalizeJob {
-  id          String            @id @default(cuid())
-  recordingId String            @unique
-  recording   Recording         @relation(fields: [recordingId], references: [id], onDelete: Cascade)
-  status      String            @default("pending")
-  attempts    Int               @default(0)
-  lockToken   String?
-  lockUntil   DateTime?
-  lastError   String            @default("")
+  id            String            @id @default(cuid())
+  recordingId   String            @unique
+  recording     Recording         @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  status        String            @default("pending")
+  attempts      Int               @default(0)
+  lockToken     String?
+  lockUntil     DateTime?
+  lastError     String            @default("")
   // Earliest time this job may be claimed again. Without it a job that always
   // fails floats to the front of the `updatedAt asc` queue and consumes a
   // worker slot every five minutes for ever — which is what one poison chunk
@@ -140,19 +155,19 @@ model FinalizeJob {
   // up at all, so one broken recording can never degrade throughput for
   // everyone else. The recording is marked failed and the user can retry it by
   // hand from the recording page.
-  deadLettered  Boolean         @default(false)
+  deadLettered  Boolean           @default(false)
   // Which phase the worker is in, so the page can show real progress instead
   // of a spinner and a guess: transcribing | diarising | analysing | done.
-  stage       String            @default("")
+  stage         String            @default("")
   // The current run's processing window. `createdAt` is when the job was
   // ENQUEUED, which happens while the meeting is still being recorded, so it
   // cannot be used to measure how long processing takes. These two can, and
   // that measurement is what the ETA is built from.
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  chunks      ChunkTranscript[]
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  chunks        ChunkTranscript[]
 
   @@index([status, updatedAt])
   // The worker's claim query: eligible status, backoff elapsed, not dead.
@@ -209,23 +224,23 @@ model Summary {
 // Acoustic voice profiles — one row per enrollment phrase or relabel sample.
 // embedding is a JSON array of 192 floats from the CAM++ speaker model.
 model VoiceProfile {
-  id          String   @id @default(cuid())
-  userId      String?
-  personName  String
-  embedding   String
-  durationS   Float    @default(0)
-  source      String   @default("enrollment") // enrollment | relabel | auto | match
-  deviceLabel String   @default("")
+  id           String   @id @default(cuid())
+  userId       String?
+  personName   String
+  embedding    String
+  durationS    Float    @default(0)
+  source       String   @default("enrollment") // enrollment | relabel | auto | match
+  deviceLabel  String   @default("")
   // Provenance: which recording the sample was learned from (null = enrollment)
   // and what that voice said there — lets the user audit + prune training data.
-  recordingId String?
-  excerpt     String   @default("")
+  recordingId  String?
+  excerpt      String   @default("")
   // Enrollment clip audio kept for playback (tiny — a few hundred KB per sample).
   // Meeting-derived samples play from the recording's archived audio instead.
-  audioData   Bytes?
-  audioMime   String   @default("")
+  audioData    Bytes?
+  audioMime    String   @default("")
   // Reserved for storage-bucket clip paths once SUPABASE_SERVICE_ROLE_KEY is set
-  audioPath   String   @default("")
+  audioPath    String   @default("")
   // Which stretch of `recordingId` actually trained this sample, in
   // recording-global seconds, plus the diarizer label it carried at learn
   // time. Recorded here rather than re-derived later: the transcript stores
@@ -233,14 +248,14 @@ model VoiceProfile {
   // finds nothing and the sample inspector cannot show or play the clip.
   clipStartS   Float?
   clipEndS     Float?
-  speakerLabel String  @default("")
-  createdAt   DateTime @default(now())
+  speakerLabel String   @default("")
+  createdAt    DateTime @default(now())
   // Which embedding model produced `embedding`. Matching NEVER crosses spaces,
   // so this is a correctness guard, not metadata: comparing a campplus vector to
   // a titanet-large-v1 one yields meaningless similarity. The column was added by
   // raw DDL in lib/ensure-schema.ts and was missing here, which meant a
   // `prisma db push` would read it as drift and drop it. Declared so it cannot.
-  modelVersion String  @default("campplus")
+  modelVersion String   @default("campplus")
 
   @@index([userId])
   @@index([personName])
@@ -308,4 +323,51 @@ model AutoFixAttempt {
   createdAt DateTime @default(now())
 
   @@index([errorHash, createdAt])
+}
+
+// Who was actually in the meeting, stated by the meeting platform rather than
+// guessed from the audio.
+//
+// This is the difference between the extension/bot paths and the web path.
+// Acoustic diarisation can only ever say "these turns are the same voice"; it
+// cannot say that voice is called Jason, and lib/voice-id.ts has to work very
+// hard to get even that far (junk-cluster absorption, echo gates, model-space
+// versioning). A meeting platform already knows every participant's display
+// name, and in the browser DOM it also highlights who is speaking right now.
+//
+// Rows arrive from two sources:
+//   'extension' — a content script reading the Meet/Teams/Zoom participant
+//                 list and the active-speaker highlight out of the page.
+//   'bot'       — Recall.ai, which for Zoom/Meet/Teams hands back a genuinely
+//                 separate audio stream per participant, so attribution is
+//                 exact by construction rather than inferred.
+//
+// `speakingSpans` holds [startSeconds, endSeconds] pairs on the recording's own
+// timeline, so a name can be attached to a transcript segment by overlap. Empty
+// when the source knew who was present but not who was talking.
+model MeetingParticipant {
+  id            String   @id @default(cuid())
+  recordingId   String
+  // The platform's own display name, verbatim. Never normalised: "Ryan
+  // Murphy (FTC)" is what the other attendees saw, so it is what the
+  // transcript should say.
+  name          String
+  // Platform-assigned participant id, when there is one. Stable within a call
+  // and the correct join key for bot per-participant streams.
+  platformId    String?
+  // True for the account holder's own participant row.
+  isHost        Boolean  @default(false)
+  // 'extension' | 'bot'
+  origin        String
+  // [[start, end], ...] in seconds from the start of the recording.
+  speakingSpans Json     @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  recording Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+
+  // One row per person per recording: the extension re-posts the participant
+  // list as people join and leave, and that must update rather than duplicate.
+  @@unique([recordingId, name, origin])
+  @@index([recordingId])
 }

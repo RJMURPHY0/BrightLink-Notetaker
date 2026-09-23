@@ -89,7 +89,6 @@ export default async function Home({
   // Total tile is "selected" only when explicitly chosen (view=all), so it stays
   // un-ringed on the default landing view — see the Stats grid below.
   const totalSelected    = one('view') === 'all';
-  const activeSource     = filters.source ?? null;
   const activeOrgId      = one('org');
   const activeTeamId     = one('team');
   const activeAssigneeId = one('assignee');
@@ -226,7 +225,7 @@ export default async function Home({
   ]);
   folders = folderResult;
   recordings = recordingResult;
-  const { all: rawAll = 0, completed: rawCompleted = 0, week: rawWeek = 0, teams: teamsCount = 0 } = countsRows[0] ?? {};
+  const { all: rawAll = 0, completed: rawCompleted = 0, week: rawWeek = 0 } = countsRows[0] ?? {};
 
   // Tiles always show the true scope totals. `allCount` also gates the stats
   // block and the search bar, so it must stay the unfiltered total — a filter
@@ -426,37 +425,6 @@ export default async function Home({
         {allCount > 0 && (
           <div className="mb-6">
             <SearchBar canSeeAll={canSeeAll} />
-          </div>
-        )}
-
-        {/* ── Source filter tabs ── */}
-        {!activeFolderId && !activeTeamId && teamsCount > 0 && (
-          <div className="flex gap-2 mb-5">
-            <Link
-              href={withScope({ source: '', ...(activeOrgId ? { org: activeOrgId } : {}) })}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
-                !activeSource ? 'bg-brand text-white' : 'text-ftc-mid hover:text-ftc-gray hover:bg-surface-raised border border-surface-border'
-              }`}
-            >
-              All
-            </Link>
-            <Link
-              href={withScope({ source: 'web', ...(activeOrgId ? { org: activeOrgId } : {}) })}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
-                activeSource === 'web' ? 'bg-brand text-white' : 'text-ftc-mid hover:text-ftc-gray hover:bg-surface-raised border border-surface-border'
-              }`}
-            >
-              In Person
-            </Link>
-            <Link
-              href={withScope({ source: 'teams', ...(activeOrgId ? { org: activeOrgId } : {}) })}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
-                activeSource === 'teams' ? 'bg-[#6264A7] text-white' : 'text-ftc-mid hover:text-ftc-gray hover:bg-surface-raised border border-surface-border'
-              }`}
-            >
-              Online
-              <span className="text-[10px] font-bold opacity-80">{teamsCount}</span>
-            </Link>
           </div>
         )}
 

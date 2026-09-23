@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'fs';
 import { normaliseDue } from './action-items';
+import { filterHallucinations, textFromSegments, type ScoredSegment } from './hallucination';
 import { openRouterCompleteDetailed, isOpenRouterReady, STABLE_MODEL, type LlmResult } from './openrouter';
 
 // ── Transcription: Groq (free Whisper) preferred, OpenAI Whisper as fallback ──
@@ -78,6 +79,18 @@ export interface RawSegment {
   text: string;
 }
 
+// Whisper re-detects the language on every chunk it is given. A chunk of room
+// tone or keyboard noise can detect as anything, and once it has decided the
+// audio is Ukrainian it will invent fluent Ukrainian to fill it — which is
+// exactly how a Google Meet transcript ended up with a recipe channel sign-off
+// attributed to the account holder. Pinning removes the whole class of
+// foreign-language invention before it can happen.
+//
+// Set TRANSCRIBE_LANGUAGE to another ISO 639-1 code for a non-English
+// customer, or to `auto` to restore detection (and its failure mode).
+const TRANSCRIBE_LANGUAGE = (process.env.TRANSCRIBE_LANGUAGE ?? 'en').toLowerCase();
+const pinnedLanguage = TRANSCRIBE_LANGUAGE === 'auto' ? undefined : TRANSCRIBE_LANGUAGE;
+
 export interface TranscriptSegment {
   speaker: string;
   start: number;
@@ -140,18 +153,55 @@ export async function transcribeAudio(filePath: string): Promise<{ text: string;
           file: fs.createReadStream(filePath),
           model,
           response_format: 'verbose_json',
+          // Greedy decoding. The default lets Whisper retry a low-confidence
+          // window at rising temperature, which is precisely when it starts
+          // inventing rather than admitting it heard nothing.
+          temperature: 0,
+          ...(pinnedLanguage ? { language: pinnedLanguage } : {}),
         }) as any;
 
-        const rawSegments: RawSegment[] = (transcription.segments ?? []).map((s: RawSegment) => ({
+        // verbose_json carries the model's own confidence per segment. It was
+        // being discarded, which left no way to tell invented speech from real
+        // speech downstream.
+        const scored: ScoredSegment[] = (transcription.segments ?? []).map((s: {
+          start: number; end: number; text: string;
+          no_speech_prob?: number; avg_logprob?: number; compression_ratio?: number;
+        }) => ({
+          start: s.start,
+          end: s.end,
+          text: s.text,
+          noSpeechProb: s.no_speech_prob,
+          avgLogprob: s.avg_logprob,
+          compressionRatio: s.compression_ratio,
+        }));
+
+        const detected = typeof transcription.language === 'string' ? transcription.language : '';
+        const { kept, dropped } = filterHallucinations(scored, {
+          language: pinnedLanguage ?? detected,
+        });
+
+        if (dropped.length) {
+          // Logged, never silent: a filter that eats real speech is worse than
+          // the hallucination it removes, and this is the only way to see it.
+          console.warn(
+            `[transcribe] dropped ${dropped.length}/${scored.length} invented segment(s):`,
+            dropped.slice(0, 5).map((d) =>
+              `${d.reason} :: ${d.segment.text.trim().slice(0, 60)}`),
+          );
+        }
+
+        const rawSegments: RawSegment[] = kept.map((s) => ({
           start: s.start,
           end: s.end,
           text: s.text,
         }));
 
         return {
-          text: transcription.text as string,
+          // Rebuilt from what survived — the provider's own `text` still
+          // contains every dropped segment.
+          text: dropped.length ? textFromSegments(kept) : (transcription.text as string),
           rawSegments,
-          language: typeof transcription.language === 'string' ? transcription.language : '',
+          language: detected,
         };
       } catch (err: unknown) {
         const e = err as { status?: number; code?: string; message?: string };

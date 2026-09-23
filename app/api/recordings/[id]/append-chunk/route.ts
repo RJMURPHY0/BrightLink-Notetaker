@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
 import { prisma } from '@/lib/db';
-import { getAuthUser, canAccessRecording } from '@/lib/auth';
+import { getAnyUser, canAccessRecording } from '@/lib/auth';
 import { enqueueFinalizeJob } from '@/lib/finalize-recording';
 import { transcribeChunk, isPermanentAudioError } from '@/lib/transcribe-chunk';
 
@@ -46,7 +46,7 @@ export async function POST(
 
     // Confirm the recording exists AND belongs to the caller — same visibility
     // rule as the recording page: owner, unclaimed, or can-see-all.
-    const user = await getAuthUser();
+    const user = await getAnyUser(request);
     const recording = await prisma.recording.findUnique({ where: { id: params.id } });
     if (!recording) {
       return NextResponse.json({ error: 'Recording not found.' }, { status: 404 });

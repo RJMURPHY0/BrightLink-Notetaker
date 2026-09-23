@@ -14,6 +14,8 @@ import {
   type CaptureSupport,
   type MeetingProvider,
 } from '@/lib/capture-support';
+import BotInvite from '@/components/BotInvite';
+import ExtensionNudge from '@/components/ExtensionNudge';
 
 type State = 'idle' | 'recording' | 'uploading' | 'queued' | 'error';
 type Source = 'web' | 'teams';
@@ -238,10 +240,30 @@ export default function RecordPage() {
     }
     // Video is requested only because getDisplayMedia requires it; we immediately
     // drop the video track and keep just the audio.
+    //
+    // The picker itself cannot be skipped — Chrome mandates it for any web page,
+    // and no permission or flag removes it. What CAN be done is to narrow it so
+    // hard that the only choices left are the ones that actually produce audio,
+    // which turns three tabs of options into a short list of correct answers.
     const display = await navigator.mediaDevices.getDisplayMedia({
       video: true,
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    });
+      // Ask for the "share system audio" affordance up front instead of leaving
+      // it to a checkbox the user has to notice and tick.
+      systemAudio: 'include',
+      // This page is never the thing being recorded. Hiding it from the picker
+      // removes the one pick that is guaranteed to record nothing.
+      selfBrowserSurface: 'exclude',
+      // Whole-screen capture yields audio only on Windows/ChromeOS. Everywhere
+      // else it is a silent recording nobody discovers until the meeting is
+      // over, so the option is removed rather than merely warned about.
+      ...(support.level === 'screen' ? {} : { monitorTypeSurfaces: 'exclude' }),
+      // Let them move the share to a different tab mid-call without stopping
+      // and restarting the recording.
+      surfaceSwitching: 'include',
+      // Never mute the call in the user's own ears while we record it.
+      suppressLocalAudioPlayback: false,
+    } as DisplayMediaStreamOptions);
 
     // Reject a doomed pick straight away rather than recording an hour of
     // silence. On macOS only a browser tab carries audio, so a whole-screen or
@@ -1200,6 +1222,16 @@ export default function RecordPage() {
               <p className="text-xs text-center max-w-xs text-amber-500">
                 Your phone refused to stay awake, usually because Low Power Mode is on. Turn it off, or set Auto-Lock to Never, before you start. A locked screen stops the recording.
               </p>
+            )}
+
+            {/* The two paths that do not go through the browser's share
+                picker. Both are additive: neither changes what this page does
+                for someone who ignores them. */}
+            {source === 'teams' && (
+              <>
+                <ExtensionNudge />
+                <BotInvite meetingType={meetingType} />
+              </>
             )}
           </div>
         )}

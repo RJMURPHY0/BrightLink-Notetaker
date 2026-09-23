@@ -26,8 +26,16 @@ export async function transcribeWithDeepgram(
     : mimeType.includes('ogg') ? 'audio/ogg'
     : 'audio/webm';
 
+  // Language pinned for the same reason as the Whisper path (lib/ai.ts): a
+  // near-silent channel must not be free to decide it is listening to another
+  // language. Deepgram does not hallucinate the way Whisper does, but the two
+  // providers transcribing the same meeting under different language
+  // assumptions is its own bug.
+  const language = (process.env.TRANSCRIBE_LANGUAGE ?? 'en').toLowerCase();
+  const langParam = language === 'auto' ? 'detect_language=true' : `language=${encodeURIComponent(language)}`;
+
   const res = await fetch(
-    'https://api.deepgram.com/v1/listen?model=nova-2&diarize=true&punctuate=true&utterances=true&smart_format=true',
+    `https://api.deepgram.com/v1/listen?model=nova-2&diarize=true&punctuate=true&utterances=true&smart_format=true&${langParam}`,
     {
       method: 'POST',
       headers: {

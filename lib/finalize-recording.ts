@@ -16,6 +16,7 @@ import { indexTranscript } from '@/lib/embeddings';
 import { alignSpeakersAcrossChunks } from '@/lib/deepgram';
 import type { DeepgramRawSegment } from '@/lib/deepgram';
 import { resolveGlobalSpeakers, matchProfilesDetailed, cosineSim, bestSpan, isAnchorSource, LEGACY_MODEL_VERSION } from '@/lib/voice-id';
+import { applySpeakingSpans, fillGenericsFromRoster, normaliseSpans } from '@/lib/participant-names';
 import { createVoiceProfileTagged, loadProfilesForVersion } from '@/lib/voice-profile-store';
 import { archiveRecordingAudio } from '@/lib/audio-archive';
 import type { ChunkForAlignment, ChunkVoiceData } from '@/lib/voice-id';
@@ -391,6 +392,8 @@ export async function reanalyzeSpeakers(
     console.warn('[reanalyze] name identification failed:', err);
   }
 
+  named = await applyRoster(recordingId, named);
+
   await prisma.transcript.update({
     where: { recordingId },
     data: { segments: JSON.stringify(named) },
@@ -399,7 +402,63 @@ export async function reanalyzeSpeakers(
   return { ok: true, resolved: true };
 }
 
-async function analyzeAndCompleteRecording(recordingId: string): Promise<FinalizeResult> {
+// Apply the meeting platform's own participant list, when one was captured.
+//
+// Ordering matters and is deliberate. Every other naming step in this file is
+// an inference: voiceprints cluster turns, an LLM reads self-introductions.
+// A roster is not an inference — the platform printed those names under those
+// tiles for the whole call. So it runs LAST and it wins, on the two occasions
+// where it can be trusted:
+//
+//   with speaking spans  — attribute per segment by overlap, conservatively
+//                          (see lib/participant-names.ts for the thresholds)
+//   without them         — fill remaining "Speaker N" labels only when the
+//                          count of unnamed clusters equals the count of
+//                          unclaimed attendees, which leaves exactly one
+//                          possible assignment
+//
+// Anything more ambiguous is left alone. A recording with no roster — every
+// in-person recording, and every online one captured through the web picker —
+// takes none of this and behaves exactly as before.
+async function applyRoster(
+  recordingId: string,
+  segments: Array<{ start: number; end: number; text: string; speaker: string }>,
+): Promise<Array<{ start: number; end: number; text: string; speaker: string }>> {
+  try {
+    const roster = await prisma.meetingParticipant.findMany({
+      where: { recordingId },
+      select: { name: true, isHost: true, speakingSpans: true },
+    });
+    if (!roster.length) return segments;
+
+    const participants = roster.map((p) => ({
+      name: p.name,
+      isHost: p.isHost,
+      speakingSpans: normaliseSpans(p.speakingSpans),
+    }));
+
+    const { segments: bySpans, stats } = applySpeakingSpans(segments, participants);
+    if (stats.renamed > 0) {
+      console.log(`[finalize] roster attributed ${stats.renamed} segment(s) from platform names`);
+    }
+
+    const { segments: filled, assigned } = fillGenericsFromRoster(bySpans, participants);
+    if (Object.keys(assigned).length) {
+      console.log('[finalize] roster filled generic labels:', assigned);
+    }
+    return filled;
+  } catch (err) {
+    // A roster is an improvement, never a dependency. If anything here throws,
+    // the acoustic labels stand.
+    console.warn('[finalize] roster naming failed:', err);
+    return segments;
+  }
+}
+
+// Exported for the Recall bot path, which arrives with a finished, already
+// attributed transcript and needs only the analysis half of finalize — no
+// chunk merge, no diarisation, no voice-ID.
+export async function analyzeAndCompleteRecording(recordingId: string): Promise<FinalizeResult> {
   await ensureSchema(); // self-heal: make sure new Summary columns exist before writing
   const [transcript, recording, existingSummary] = await Promise.all([
     prisma.transcript.findUnique({ where: { recordingId } }),
@@ -470,9 +529,11 @@ async function analyzeAndCompleteRecording(recordingId: string): Promise<Finaliz
   });
   const title = shortTitle ? `${shortTitle} - ${dateStr}` : null;
 
+  const finalSegments = await applyRoster(recordingId, diarized);
+
   await prisma.transcript.update({
     where: { recordingId },
-    data: { segments: JSON.stringify(diarized) },
+    data: { segments: JSON.stringify(finalSegments) },
   });
 
   // B2: Don't persist empty or mock-mode analysis — mark failed so the recording can be retried

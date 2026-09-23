@@ -77,6 +77,19 @@ export async function middleware(request: NextRequest) {
     // verifies the bearer itself, answers 401 without one, and still applies
     // canAccessRecording(). Exactly this route, nothing else under recordings.
     /^\/api\/recordings\/[^/]+\/summary$/.test(pathname) ||
+    // Recall.ai's bot webhooks come from Recall's servers with no user session
+    // at all. The route verifies a Svix HMAC signature itself and FAILS CLOSED
+    // on an unset RECALL_WEBHOOK_SECRET, which is the only gate it has —
+    // matching the pattern /api/auto-fix and /api/jobs/finalize both had to be
+    // corrected into.
+    pathname === '/api/recall/webhook' ||
+    // The Chrome extension is another origin carrying a bearer, not a cookie,
+    // so the redirect above would bounce its uploads to /login. Each of these
+    // routes resolves the bearer via getAnyUser() and still applies
+    // canAccessRecording(); the CORS preflight carries no auth at all.
+    /^\/api\/recordings\/[^/]+\/(append-chunk|finalize|participants)$/.test(pathname) ||
+    pathname === '/api/recordings/create' ||
+    pathname === '/api/recall/bot' ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/icon') ||

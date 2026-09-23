@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Allow microphone — FTC Transcribe</title>
+<style>
+  :root { --bg:#0a0a0a; --card:#111113; --border:#1f1f23; --text:#e5e5e7; --muted:#8a8a92; --accent:#16a34a; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); color:var(--text); padding:24px;
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  .card { max-width:440px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:28px; }
+  h1 { font-size:19px; margin:0 0 10px; font-weight:600; letter-spacing:-0.01em; }
+  p { color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 18px; }
+  button {
+    width:100%; padding:12px; border:none; border-radius:12px; background:var(--accent);
+    color:#fff; font:600 14px Inter,sans-serif; cursor:pointer;
+  }
+  button:hover { background:#15803d; }
+  .ok { color:var(--accent); font-weight:600; font-size:14px; }
+  .err { color:#fca5a5; font-size:13px; line-height:1.6; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Allow your microphone</h1>
+    <p>
+      FTC Transcribe records the call and your own voice as two separate tracks, so your
+      words are never confused with anyone else's. Chrome needs to ask once, here —
+      the background recorder has no window to ask from.
+    </p>
+    <button id="grant">Allow microphone</button>
+    <p id="status" style="margin:16px 0 0"></p>
+  </div>
+  <script src="permission.js"></script>
+</body>
+</html>
