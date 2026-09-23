@@ -1,10 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Mic, Users, FileText, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { PRODUCT_NAME, COMPANY_NAME } from '@/lib/branding';
 import BrandLogo from '@/components/BrandLogo';
+import { isFramed } from '@/lib/embed-bridge';
+
+/** Where to go after signing in: the page that sent them here, same site only. */
+function nextPath(): string {
+  const next = new URLSearchParams(window.location.search).get('next') ?? '/';
+  return next.startsWith('/') && !next.startsWith('//') ? next : '/';
+}
 
 // Product value points for the brand panel. Brand-neutral wording so the
 // imminent rebrand doesn't leave stale copy behind.
@@ -20,6 +27,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Inside BrightLink there is never a password form: BrightLink signs this app
+  // in itself (app/auth/sso). The page is hidden there (data-nt-chrome) and
+  // hands straight over.
+  useEffect(() => {
+    if (isFramed()) window.location.replace(`/auth/sso?next=${encodeURIComponent(nextPath())}`);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,11 +58,11 @@ export default function LoginPage() {
 
     // Hard redirect — faster than router.push + router.refresh (avoids double round-trip).
     // The session cookie is already set by signInWithPassword, so the server sees it immediately.
-    window.location.href = '/';
+    window.location.href = nextPath();
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-surface text-ftc-gray">
+    <div data-nt-chrome className="relative min-h-screen w-full overflow-hidden bg-surface text-ftc-gray">
       {/* Ambient brand glow */}
       <div
         aria-hidden

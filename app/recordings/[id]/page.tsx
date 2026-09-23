@@ -19,6 +19,7 @@ import type { TranscriptSegment, TopicSection } from '@/lib/ai';
 import { peaksFromSegments } from '@/lib/audio-peaks';
 import { ensureSchema } from '@/lib/ensure-schema';
 import { getAuthUser, canAccessRecording } from '@/lib/auth';
+import EmbedTitle from '@/components/EmbedTitle';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,6 +121,8 @@ export default async function RecordingPage({
 
   return (
     <div className="detail-shell min-h-screen flex flex-col bg-surface">
+      {/* Inside BrightLink, its browser tab reads this meeting's name. */}
+      <EmbedTitle title={recording.title} />
       {/* Sticky header */}
       <header className="sticky top-0 z-20 border-b border-surface-border bg-surface/80 backdrop-blur-md">
         <div className="max-w-[1800px] mx-auto px-4 py-3 flex items-center gap-3">

@@ -3,6 +3,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { prisma } from '@/lib/db';
 import { getUserOrgId } from '@/lib/contacts-db';
+import { fetchMeetingCapabilities } from '@/lib/capabilities';
 
 export interface AuthUser {
   id: string;
@@ -21,7 +22,8 @@ export interface AuthUser {
 
 // In-process permission cache — avoids a DB round-trip on every server render.
 // TTL is 5 min; permissions change rarely (super-admin only writes them).
-const permCache = new Map<string, { canSeeAll: boolean; canPlayAudio: boolean; orgId: string | null; expires: number }>();
+// `blocked`: BrightLink's Team Admin has the Notetaker switched off for them.
+const permCache = new Map<string, { canSeeAll: boolean; canPlayAudio: boolean; orgId: string | null; blocked: boolean; expires: number }>();
 const PERM_TTL_MS = 5 * 60 * 1000;
 
 // Overridable per environment; the literal fallback keeps existing deploys
@@ -55,6 +57,7 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
 
   const cached = permCache.get(user.id);
   if (cached && cached.expires > Date.now()) {
+    if (cached.blocked) return null;
     return {
       id: user.id, email: user.email ?? '', canSeeAll: cached.canSeeAll,
       canPlayAudio: cached.canPlayAudio, isSuperAdmin: false, orgId: cached.orgId,
@@ -74,9 +77,19 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
 
   // Cached alongside the permission flags: both come from the same rarely
   // changing source and both are needed on every render that lists recordings.
-  const orgId = await getUserOrgId(user.id).catch(() => null);
+  const [orgId, caps] = await Promise.all([
+    getUserOrgId(user.id).catch(() => null),
+    fetchMeetingCapabilities(supabase),
+  ]);
+  // Switched off in BrightLink's Team Admin: no data at all. The page they see
+  // says so (middleware rewrites to /switched-off).
+  const blocked = !caps.meetings;
+  // "See the team's meetings" switched off: their own meetings only, whatever
+  // the Notetaker's own team permission says.
+  canSeeAll = canSeeAll && caps.teamMeetings;
 
-  permCache.set(user.id, { canSeeAll, canPlayAudio, orgId, expires: Date.now() + PERM_TTL_MS });
+  permCache.set(user.id, { canSeeAll, canPlayAudio, orgId, blocked, expires: Date.now() + PERM_TTL_MS });
+  if (blocked) return null;
 
   return { id: user.id, email: user.email ?? '', canSeeAll, canPlayAudio, isSuperAdmin: false, orgId };
 });
@@ -100,12 +113,16 @@ export async function getBearerUser(request: Request): Promise<AuthUser | null> 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return null;
 
   let user = null;
+  // Acts AS the bearer, so has_capability() below answers for them.
+  const supabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    },
+  );
   try {
-    const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      { auth: { persistSession: false, autoRefreshToken: false } },
-    );
     const { data, error } = await supabase.auth.getUser(token);
     if (!error) user = data.user;
   } catch {
@@ -117,6 +134,9 @@ export async function getBearerUser(request: Request): Promise<AuthUser | null> 
   if (user.email === SUPER_ADMIN_EMAIL) {
     return { id: user.id, email: user.email, canSeeAll: true, canPlayAudio: true, isSuperAdmin: true, orgId };
   }
+  // The extension, the iPhone app and the CRM honour BrightLink's switch too.
+  const caps = await fetchMeetingCapabilities(supabase);
+  if (!caps.meetings) return null;
   return { id: user.id, email: user.email ?? '', canSeeAll: false, canPlayAudio: true, isSuperAdmin: false, orgId };
 }
 

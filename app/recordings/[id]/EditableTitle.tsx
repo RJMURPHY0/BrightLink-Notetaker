@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { reportTitle, setEmbedTitle } from '@/lib/embed-bridge';
 
 export default function EditableTitle({ id, initial }: { id: string; initial: string }) {
   const [title, setTitle] = useState(initial);
@@ -25,7 +26,12 @@ export default function EditableTitle({ id, initial }: { id: string; initial: st
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: trimmed }),
       });
-      if (res.ok) setTitle(trimmed);
+      if (res.ok) {
+        setTitle(trimmed);
+        // Inside BrightLink, its browser tab follows the new name.
+        setEmbedTitle(trimmed);
+        reportTitle(trimmed);
+      }
     } finally {
       setSaving(false);
       setEditing(false);

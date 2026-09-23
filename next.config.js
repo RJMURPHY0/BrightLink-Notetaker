@@ -1,9 +1,21 @@
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV === 'development';
 
+// BrightLink (the CRM) shows the Notetaker inside its own pages, in a frame.
+// Only BrightLink may do that: CRM_ALLOWED_ORIGINS (comma separated, already
+// the CORS list for the CRM's calls) adds origins beyond app.brightlink.io, and
+// a development build also accepts any localhost port. frame-ancestors is the
+// whole rule; X-Frame-Options was DENY and cannot name an origin, and browsers
+// ignore it once frame-ancestors is present, so it is gone rather than left to
+// contradict it. See lib/embed-bridge.ts.
+const CRM_ORIGINS = [
+  'https://app.brightlink.io',
+  ...(process.env.CRM_ALLOWED_ORIGINS || '').split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean),
+];
+const frameAncestors = ["'self'", ...CRM_ORIGINS, ...(isDev ? ['http://localhost:*', 'http://127.0.0.1:*'] : [])].join(' ');
+
 const securityHeaders = [
   { key: 'X-Content-Type-Options',    value: 'nosniff' },
-  { key: 'X-Frame-Options',           value: 'DENY' },
   { key: 'X-XSS-Protection',          value: '1; mode=block' },
   { key: 'Referrer-Policy',           value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy',        value: 'camera=(), geolocation=(), microphone=(self)' },
@@ -23,7 +35,7 @@ const securityHeaders = [
       "media-src 'self' blob:",
       "connect-src 'self' https://api.anthropic.com https://api.groq.com https://api.openai.com https://ijeeghdxokfvlfarojlm.supabase.co",
       "font-src 'self'",
-      "frame-ancestors 'none'",
+      `frame-ancestors ${frameAncestors}`,
     ].join('; '),
   },
 ];
@@ -48,6 +60,10 @@ const docLogoTraceIncludes = [
 ];
 
 const nextConfig = {
+  // The same list, for the browser side of the bridge (lib/embed-bridge.ts).
+  env: {
+    NEXT_PUBLIC_CRM_ORIGINS: process.env.NEXT_PUBLIC_CRM_ORIGINS || process.env.CRM_ALLOWED_ORIGINS || '',
+  },
   experimental: {
     serverComponentsExternalPackages: ['sherpa-onnx-node', 'ffmpeg-static'],
     // Both key forms — with and without /route — since Next matches the

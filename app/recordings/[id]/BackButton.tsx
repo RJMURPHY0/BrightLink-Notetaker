@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { isEmbedded } from '@/lib/embed-bridge';
 
 // Back via history when we arrived from inside the app — the list page is
 // restored instantly from the client router cache with scroll position and
@@ -9,6 +10,12 @@ export default function BackButton() {
   const router = useRouter();
 
   const handleBack = () => {
+    // Inside BrightLink the frame keeps no history of its own (BrightLink owns
+    // the address and Back), so go to the list and let BrightLink record it.
+    if (isEmbedded()) {
+      router.push('/');
+      return;
+    }
     let fromApp = false;
     try {
       fromApp =

@@ -17,6 +17,7 @@ import {
 import BotInvite from '@/components/BotInvite';
 import ExtensionNudge from '@/components/ExtensionNudge';
 import BrandLogo from '@/components/BrandLogo';
+import { STOP_RECORDING_EVENT, reportRecording } from '@/lib/embed-bridge';
 
 type State = 'idle' | 'recording' | 'uploading' | 'queued' | 'error';
 type Source = 'web' | 'teams';
@@ -933,6 +934,27 @@ export default function RecordPage() {
     void releaseWakeLock();
   }, [state, isPaused, stopVAD, stopLiveCaptions, releaseWakeLock, router, flushFailedChunks, stopMeetingCapture]);
 
+  // ── Inside BrightLink ──
+  // BrightLink keeps this page alive while its user works elsewhere, shows
+  // "Recording 12:03" in its top bar, and asks before anything would move this
+  // page away mid-recording. It needs the state, and a way to ask for a stop.
+  // Both do nothing outside a BrightLink frame (lib/embed-bridge.ts).
+  useEffect(() => {
+    const embedState = state === 'recording' ? (isPaused ? 'paused' : 'recording')
+      : state === 'uploading' || state === 'queued' ? 'saving'
+      : null;
+    reportRecording(embedState, seconds);
+  }, [state, isPaused, seconds]);
+  useEffect(() => () => reportRecording(null, 0), []);
+
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  useEffect(() => {
+    const onStop = () => stopRef.current();
+    window.addEventListener(STOP_RECORDING_EVENT, onStop);
+    return () => window.removeEventListener(STOP_RECORDING_EVENT, onStop);
+  }, []);
+
   const handleClick = () => {
     if (state === 'recording') { stop(); return; }
     if (state !== 'idle') return;
@@ -955,7 +977,8 @@ export default function RecordPage() {
     <div className="min-h-screen flex flex-col bg-surface">
       {/* Header — sticky + stacked above the (flex-centered) body so its taps
           are never swallowed by overflowing content or the iOS mic pill. */}
-      <header className="sticky top-0 z-30 border-b border-surface-border bg-surface/95 backdrop-blur-md">
+      {/* data-nt-chrome: inside BrightLink its Record tab stands in for this. */}
+      <header data-nt-chrome className="sticky top-0 z-30 border-b border-surface-border bg-surface/95 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-2 py-2 flex items-center gap-2">
           <Link
             href="/"

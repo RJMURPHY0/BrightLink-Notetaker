@@ -324,7 +324,8 @@ export default async function Home({
     <div className="min-h-screen flex flex-col bg-surface">
       {/* Nav — z-30 so the sticky logo always sits above the list's selection
           ticks (z-20), which scroll up through the same column underneath it. */}
-      <header className="sticky top-0 z-30 border-b border-surface-border bg-surface/80 backdrop-blur-md">
+      {/* data-nt-chrome: inside BrightLink its own header carries these. */}
+      <header data-nt-chrome className="sticky top-0 z-30 border-b border-surface-border bg-surface/80 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center h-12">
             <BrandLogo className="h-full object-contain" />

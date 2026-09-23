@@ -1,9 +1,11 @@
+import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import GlobalChatWidget from '@/components/GlobalChatWidget';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import LiveFxSync from '@/components/LiveFxSync';
+import EmbedBridge from '@/components/EmbedBridge';
 import { PRODUCT_SHORT_NAME, TAB_TITLE } from '@/lib/branding';
 
 // Brand font parity with the BrightLink CRM (Inter). Exposed as a CSS variable so
@@ -45,6 +47,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `try{var t=localStorage.getItem('ftc-theme');document.documentElement.classList.toggle('dark',t!=='light')}catch(e){}`,
           }}
         />
+        {/* Inside BrightLink (only its origins may frame this app, see
+            next.config.js): mark the page embedded before first paint so the
+            global chrome is never drawn (data-nt-chrome, globals.css), follow
+            BrightLink's theme, and never add browser-history entries. BrightLink
+            owns the address and Back; a pushState in here would add a second
+            entry to the same Back button, so pushes become replaces.
+            See lib/embed-bridge.ts. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(window.self!==window.top){var d=document.documentElement;d.dataset.embed='1';try{var bt=sessionStorage.getItem('bl-theme');if(bt)d.classList.toggle('dark',bt!=='light')}catch(e){}var rs=history.replaceState;history.pushState=function(s,u,l){return rs.call(history,s,u,l)}}}catch(e){}`,
+          }}
+        />
         {/* Warm the TLS connection to Supabase before the first auth call —
             saves a DNS + handshake round-trip on sign-in and SSO handoff. */}
         {process.env.NEXT_PUBLIC_SUPABASE_URL && (
@@ -57,8 +71,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         {children}
         <LiveFxSync />
-        <GlobalChatWidget />
+        {/* Inside BrightLink its own assistant is on screen; one chat, not two. */}
+        <div data-nt-chrome>
+          <GlobalChatWidget />
+        </div>
         <ServiceWorkerRegistrar />
+        <Suspense fallback={null}>
+          <EmbedBridge />
+        </Suspense>
       </body>
     </html>
   );

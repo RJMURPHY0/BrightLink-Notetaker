@@ -469,3 +469,10 @@
   0% { box-shadow: 0 0 0 10px rgb(246 148 28 / 0.35); }
   100% { box-shadow: 0 0 0 0 rgb(246 148 28 / 0); }
 }
+
+/* Inside BrightLink (html[data-embed], set before first paint in app/layout.tsx)
+   BrightLink draws the logo, sign-out, settings and "New recording" itself, so
+   anything marked data-nt-chrome is not drawn at all. */
+html[data-embed="1"] [data-nt-chrome] {
+  display: none !important;
+}

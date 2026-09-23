@@ -177,6 +177,7 @@ export default function SettingsPage() {
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link
             href="/"
+            data-nt-chrome
             className="flex items-center gap-1.5 text-sm font-medium text-ftc-mid hover:text-ftc-gray transition-colors p-2 -ml-2 rounded-xl touch-manipulation"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -264,8 +265,9 @@ export default function SettingsPage() {
         <section>
           <SectionHeader icon={Palette} title="Appearance" />
           <div className="rounded-2xl border border-surface-border bg-surface-card p-5">
-            <label className="block text-xs text-ftc-mid mb-3">Theme</label>
-            <div className="grid grid-cols-2 gap-2">
+            {/* Inside BrightLink the theme follows BrightLink's, so the choice is its. */}
+            <label data-nt-chrome className="block text-xs text-ftc-mid mb-3">Theme</label>
+            <div data-nt-chrome className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => applyTheme('light')}
@@ -298,11 +300,11 @@ export default function SettingsPage() {
                 Dark
               </button>
             </div>
-            <p className="text-xs text-surface-muted mt-3">
+            <p data-nt-chrome className="text-xs text-surface-muted mt-3">
               Saved on this device. Light mode is easier to read in bright conditions.
             </p>
 
-            <div className="h-px bg-surface-border my-4" />
+            <div data-nt-chrome className="h-px bg-surface-border my-4" />
 
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">

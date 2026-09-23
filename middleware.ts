@@ -1,6 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// Whether BrightLink's Team Admin allows this person the Notetaker, per warm
+// instance for a minute. The answer comes from has_capability(), the same SQL
+// rule the CRM's RLS uses, asked as the user. A page for someone it is switched
+// off for shows /switched-off instead; their data is refused separately by
+// getAuthUser() (lib/auth.ts), which is the real boundary.
+const MEETINGS_CAP_TTL_MS = 60_000;
+const meetingsCapCache = new Map<string, { allowed: boolean; expires: number }>();
+
 export async function middleware(request: NextRequest) {
   // If Supabase env vars aren't configured, pass through rather than crashing
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -65,6 +73,8 @@ export async function middleware(request: NextRequest) {
   const isPublic =
     pathname === '/login' ||
     pathname === '/auth/sso' ||
+    pathname === '/install' ||
+    pathname === '/switched-off' ||
     pathname.startsWith('/api/auto-fix') ||
     pathname.startsWith('/api/jobs/finalize') ||
     pathname.startsWith('/api/health') ||
@@ -101,11 +111,37 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    // Back to the page they asked for once signed in (and, inside BrightLink,
+    // straight through the silent sign-in to it).
+    url.search = '';
+    if (pathname !== '/' && !pathname.startsWith('/api/')) {
+      url.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
+    }
     const redirect = NextResponse.redirect(url);
     // Preserve any cookies getUser() just refreshed, so a session caught
     // mid-rotation isn't thrown away by the redirect itself.
     supabaseResponse.cookies.getAll().forEach((c) => redirect.cookies.set(c));
     return redirect;
+  }
+
+  // Pages only: an API route answers for itself through getAuthUser().
+  if (user && !isPublic && !pathname.startsWith('/api/')) {
+    const now = Date.now();
+    let cap = meetingsCapCache.get(user.id);
+    if (!cap || cap.expires <= now) {
+      let allowed = true; // fails open, like the CRM's own feature guard
+      try {
+        const { data, error } = await supabase.rpc('has_capability', { p_key: 'meetings' });
+        if (!error) allowed = data !== false;
+      } catch { /* auth or database unreachable: fail open */ }
+      cap = { allowed, expires: now + MEETINGS_CAP_TTL_MS };
+      meetingsCapCache.set(user.id, cap);
+    }
+    if (!cap.allowed) {
+      const rewrite = NextResponse.rewrite(new URL('/switched-off', request.url));
+      supabaseResponse.cookies.getAll().forEach((c) => rewrite.cookies.set(c));
+      return rewrite;
+    }
   }
 
   return supabaseResponse;
