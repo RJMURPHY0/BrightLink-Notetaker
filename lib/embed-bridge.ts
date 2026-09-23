@@ -27,7 +27,9 @@ export type HostMessage =
   | { type: 'auth-error'; message: string }
   | { type: 'navigate'; path: string }
   | { type: 'theme'; theme: BridgeTheme }
-  | { type: 'stop-recording' };
+  | { type: 'stop-recording' }
+  /** Re-read the page's data in place: the frame sat hidden and may be stale. */
+  | { type: 'refresh' };
 
 /** Notetaker → BrightLink. */
 export type GuestMessage =
@@ -128,6 +130,8 @@ export function parseHostMessage(event: MessageEvent): HostMessage | null {
       return d.theme === 'light' || d.theme === 'dark' ? { type: 'theme', theme: d.theme } : null;
     case 'stop-recording':
       return { type: 'stop-recording' };
+    case 'refresh':
+      return { type: 'refresh' };
     default:
       return null;
   }

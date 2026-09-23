@@ -37,6 +37,10 @@ export default function EmbedBridge() {
       if (msg.type === 'navigate') router.replace(msg.path);
       else if (msg.type === 'theme') applyHostTheme(msg.theme);
       else if (msg.type === 'stop-recording') window.dispatchEvent(new Event(STOP_RECORDING_EVENT));
+      // BrightLink keeps this frame loaded but hidden so opening it is instant;
+      // when it is shown again after a while, the data is re-read in place
+      // (server components only; client state such as a recorder is untouched).
+      else if (msg.type === 'refresh') router.refresh();
     });
   }, [router]);
 
