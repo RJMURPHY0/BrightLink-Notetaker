@@ -16,6 +16,7 @@ import {
 } from '@/lib/capture-support';
 import BotInvite from '@/components/BotInvite';
 import ExtensionNudge from '@/components/ExtensionNudge';
+import BrandLogo from '@/components/BrandLogo';
 
 type State = 'idle' | 'recording' | 'uploading' | 'queued' | 'error';
 type Source = 'web' | 'teams';
@@ -967,7 +968,7 @@ export default function RecordPage() {
             Back
           </Link>
           <div className="flex items-center gap-2 min-w-0">
-            <img src="/logo.png" alt="FTC Transcribe" className="h-6 object-contain shrink-0" />
+            <BrandLogo className="h-6 object-contain shrink-0" />
             <span className="font-semibold text-sm text-ftc-gray border-l border-surface-border pl-2 truncate">New Recording</span>
           </div>
         </div>

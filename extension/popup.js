@@ -54,7 +54,7 @@ async function render() {
     view.innerHTML = `
       <div class="card">
         <div class="meeting">Connect your account</div>
-        <div class="muted">Sign in to FTC Transcribe once, and this extension records straight to your account.</div>
+        <div class="muted">Sign in to BrightLink Notetaker once, and this extension records straight to your account.</div>
       </div>
       <button class="primary" id="connect">Connect</button>`;
     document.getElementById('connect').onclick = () => {
@@ -127,7 +127,7 @@ async function render() {
     </div>
     <div class="stack">
       <button class="primary" id="start">${onMeeting ? `Record ${label}` : 'Record this tab'}</button>
-      <button class="ghost" id="open">Open FTC Transcribe</button>
+      <button class="ghost" id="open">Open Notetaker</button>
     </div>
     ${lastError ? `<div class="err">${lastError}</div>` : ''}`;
 

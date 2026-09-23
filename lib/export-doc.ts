@@ -65,14 +65,14 @@ export function exportFilename(title: string): string {
 }
 
 /**
- * Documents are light surfaces, so they take the dark wordmark — the reversed
- * (white) mark the app uses on its dark UI is invisible on paper.
- * Falls back to the reversed mark if the dark artwork is ever missing.
+ * Documents are light surfaces, so they take the on-light lockup — the
+ * reversed (white "Bright") mark the app uses on its dark UI is invisible on
+ * paper. Falls back to the reversed mark if the light artwork is ever missing.
  */
 export async function readDocLogo(): Promise<Buffer | null> {
   const { readFile } = await import('fs/promises');
   const { join } = await import('path');
-  for (const file of ['logo-dark.png', 'logo.png']) {
+  for (const file of ['logo-light.png', 'logo.png']) {
     try {
       return await readFile(join(process.cwd(), 'public', file));
     } catch { /* try the next candidate */ }

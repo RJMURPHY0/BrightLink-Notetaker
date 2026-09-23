@@ -11,7 +11,7 @@ def ts(v):
     return "'" + str(v).replace("'", "''") + "+00'::timestamptz"
 
 lines = []
-lines.append("-- FTC Transcribe → FTC Contacts: full data migration")
+lines.append("-- BrightLink Notetaker → BrightLink CRM: full data migration")
 lines.append("-- Run this in the FTC Contacts Supabase SQL editor")
 lines.append("")
 

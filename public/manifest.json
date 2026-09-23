@@ -1,11 +1,11 @@
 {
-  "name": "FTC Transcribe",
-  "short_name": "FTC Transcribe",
+  "name": "BrightLink Notetaker",
+  "short_name": "Notetaker",
   "description": "Record any conversation and get an instant AI transcript, summary, and action items.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#030712",
-  "theme_color": "#030712",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
   "orientation": "portrait-primary",
   "icons": [
     {

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Mic, Users, FileText, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { PRODUCT_NAME } from '@/lib/branding';
+import BrandLogo from '@/components/BrandLogo';
 
 // Product value points for the brand panel. Brand-neutral wording so the
 // imminent rebrand doesn't leave stale copy behind.
@@ -60,7 +62,7 @@ export default function LoginPage() {
       <div className="relative z-10 grid min-h-screen lg:grid-cols-2">
         {/* Brand / hero panel — desktop only */}
         <aside className="hidden flex-col justify-between border-r border-surface-border p-12 lg:flex">
-          <img src="/logo.png" alt="FTC Transcribe" className="h-14 w-auto self-start object-contain" />
+          <BrandLogo className="h-14 w-auto self-start object-contain" />
 
           <div className="max-w-md">
             <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ftc-gray xl:text-4xl">
@@ -94,7 +96,7 @@ export default function LoginPage() {
         <main className="flex items-center justify-center px-6 py-12 sm:px-12">
           <div className="w-full max-w-sm">
             {/* Mobile logo — hero panel is hidden below lg */}
-            <img src="/logo.png" alt="FTC Transcribe" className="mx-auto mb-8 h-14 w-auto object-contain lg:hidden" />
+            <BrandLogo className="mx-auto mb-8 h-14 w-auto object-contain lg:hidden" />
 
             <div className="rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl shadow-black/30 sm:p-8">
               <div className="mb-6 text-center">
@@ -168,7 +170,7 @@ export default function LoginPage() {
             </div>
 
             <p className="mt-6 text-center text-xs text-ftc-mid">
-              FTC Transcribe. Meeting notes, secured.
+              {PRODUCT_NAME}. Meeting notes, secured.
             </p>
           </div>
         </main>

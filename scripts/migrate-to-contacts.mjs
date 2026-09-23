@@ -1,8 +1,8 @@
 /**
- * One-time migration: copies all data from FTC Transcribe Supabase
+ * One-time migration: copies all data from the Notetaker Supabase
  * into FTC Contacts Supabase.
  *
- * Run from the FTC Transcribe directory:
+ * Run from the Notetaker directory:
  *
  *   $env:NEW_DATABASE_URL="postgresql://postgres.ijeeghdxokfvlfarojlm:<password>@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
  *   node scripts/migrate-to-contacts.mjs
@@ -33,7 +33,7 @@ function log(label, count) {
 }
 
 async function run() {
-  console.log('\n🚀  Migrating FTC Transcribe → FTC Contacts\n')
+  console.log('\n🚀  Migrating Notetaker → BrightLink CRM\n')
 
   // ── Folders ──────────────────────────────────────────────────────────────
   const folders = await src.folder.findMany()
@@ -91,7 +91,7 @@ async function run() {
   log('Summaries', summaries.length)
 
   console.log('\n✅  Migration complete!\n')
-  console.log('Next step: update DATABASE_URL in FTC Transcribe .env.local to:')
+  console.log('Next step: update DATABASE_URL in Notetaker .env.local to:')
   console.log('  postgresql://postgres.ijeeghdxokfvlfarojlm:<password>@aws-0-eu-west-1.pooler.supabase.com:6543/postgres\n')
 }
 

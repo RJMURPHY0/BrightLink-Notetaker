@@ -1,4 +1,4 @@
-# FTC Transcribe — Chrome extension
+# BrightLink Notetaker — Chrome extension
 
 One click on the toolbar icon records the meeting in the current tab. No
 screen-share picker, and speakers get their real names from the meeting's own
@@ -77,7 +77,7 @@ rebuild.
 ## Record
 
 1. Open the Teams / Meet / Zoom tab
-2. Click the FTC Transcribe icon
+2. Click the BrightLink Notetaker icon
 3. **Record** → **Stop and transcribe**
 
 Any tab playing call audio works; the meeting platforms just also give names.

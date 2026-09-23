@@ -23,6 +23,7 @@ import {
   getMemberNames,
 } from '@/lib/contacts-db';
 import { Settings, ChevronLeft, ChevronRight, Folder, Users, AlertTriangle, Mic, CircleCheck, CalendarClock, X } from 'lucide-react';
+import BrandLogo from '@/components/BrandLogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -326,7 +327,7 @@ export default async function Home({
       <header className="sticky top-0 z-30 border-b border-surface-border bg-surface/80 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center h-12">
-            <img src="/logo.png" alt="FTC Transcribe" className="h-full object-contain" />
+            <BrandLogo className="h-full object-contain" />
           </div>
           <div className="flex items-center gap-2">
             <LogoutButton />

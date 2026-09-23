@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FTC Transcribe",
+    "name": "BrightLink Notetaker",
     "slug": "ftc-transcribe",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,7 +17,7 @@
       "bundleIdentifier": "com.ftcgroup.transcribe",
       "infoPlist": {
         "UIBackgroundModes": ["audio"],
-        "NSMicrophoneUsageDescription": "FTC Transcribe needs microphone access to record meetings.",
+        "NSMicrophoneUsageDescription": "BrightLink Notetaker needs microphone access to record meetings.",
         "UIStatusBarStyle": "UIStatusBarStyleLightContent"
       }
     },
@@ -28,7 +28,7 @@
     "plugins": [
       [
         "expo-av",
-        { "microphonePermission": "FTC Transcribe needs microphone access to record meetings." }
+        { "microphonePermission": "BrightLink Notetaker needs microphone access to record meetings." }
       ]
     ],
     "extra": {

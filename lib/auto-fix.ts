@@ -6,6 +6,7 @@
 //   AUTOFIX_REPO_TRANSCRIBE — e.g. "RJMURPHY0/Transcription-"
 //   AUTOFIX_REPO_CONTACTS   — e.g. "RJMURPHY0/FTC-Contacts" (optional)
 
+import { GITHUB_REPO } from '@/lib/branding';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   getRepoFilePaths,
@@ -20,9 +21,9 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Maps source app name → GitHub repo.
 // FTC Contacts reports errors with source "frontend" | "chat" | "api".
-// FTC Transcribe reports with source "transcribe".
+// BrightLink Notetaker reports with source "transcribe".
 function repoForSource(source: string): string | null {
-  if (source === 'transcribe') return process.env.AUTOFIX_REPO_TRANSCRIBE ?? 'RJMURPHY0/FTC_Transcribe';
+  if (source === 'transcribe') return process.env.AUTOFIX_REPO_TRANSCRIBE ?? GITHUB_REPO;
   if (source === 'contacts' || source === 'frontend' || source === 'chat' || source === 'api') {
     return process.env.AUTOFIX_REPO_CONTACTS ?? null;
   }

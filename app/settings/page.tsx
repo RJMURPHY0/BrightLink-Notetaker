@@ -7,6 +7,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { setGlowEnabled } from '@/components/ui/spotlight-card';
 import { pickBestMic } from '@/lib/mic-select';
 import ToggleSwitch from '@/components/ui/toggle-switch';
+import { PRODUCT_NAME } from '@/lib/branding';
 
 interface MicDevice { deviceId: string; label: string; }
 interface Health { db: boolean; openai: boolean; anthropic: boolean; groq: boolean; airtable: boolean; }
@@ -412,7 +413,7 @@ export default function SettingsPage() {
           <SectionHeader icon={Info} title="About" />
           <div className="rounded-2xl border border-surface-border bg-surface-card px-5">
             <Row label="App">
-              <span className="text-sm text-ftc-mid">FTC Transcribe</span>
+              <span className="text-sm text-ftc-mid">{PRODUCT_NAME}</span>
             </Row>
             <Row label="Backend">
               <span className="text-sm text-ftc-mid truncate max-w-[200px]">{typeof window !== 'undefined' ? window.location.hostname : '—'}</span>

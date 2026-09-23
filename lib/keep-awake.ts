@@ -17,6 +17,8 @@
 // when it happens, and always know whether we actually hold the lock so the UI
 // can say so rather than showing a ticking timer over a dead recorder.
 
+import { PRODUCT_NAME } from '@/lib/branding';
+
 interface WakeSentinel {
   release(): Promise<void>;
   addEventListener?(type: 'release', listener: () => void): void;
@@ -197,7 +199,7 @@ export class KeepAwake {
       if (typeof MediaMetadata !== 'undefined') {
         ms.metadata = new MediaMetadata({
           title: 'Recording in progress',
-          artist: 'FTC Transcribe',
+          artist: PRODUCT_NAME,
         });
       }
       ms.playbackState = 'playing';

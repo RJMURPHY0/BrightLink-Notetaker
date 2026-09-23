@@ -4,8 +4,9 @@ import './globals.css';
 import GlobalChatWidget from '@/components/GlobalChatWidget';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import LiveFxSync from '@/components/LiveFxSync';
+import { PRODUCT_NAME } from '@/lib/branding';
 
-// Brand font parity with the Contacts app (Inter). Exposed as a CSS variable so
+// Brand font parity with the BrightLink CRM (Inter). Exposed as a CSS variable so
 // tailwind.config's fontFamily.sans picks it up app-wide.
 const inter = Inter({
   subsets: ['latin'],
@@ -14,13 +15,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'FTC Transcribe – AI Meeting Notes',
+  title: `${PRODUCT_NAME} – AI Meeting Notes`,
   description: 'Record any conversation and get an instant transcript, summary, and action items powered by AI.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'FTC Transcribe',
+    title: PRODUCT_NAME,
   },
 };
 
@@ -30,7 +31,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#030712',
+  themeColor: '#1a1a1a',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

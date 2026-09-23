@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { PRODUCT_NAME } from '@/lib/branding';
 
 // Published id. Replaced at release; during development the unpacked extension
 // gets a different id on each load, which the manual field below covers.
@@ -117,7 +118,7 @@ export default function ExtensionPage() {
           <div className="rounded-2xl border border-emerald-600/30 bg-emerald-500/10 p-5 space-y-2">
             <p className="font-medium text-emerald-400">Connected{email ? ` as ${email}` : ''}.</p>
             <p className="text-sm text-ftc-mid leading-relaxed">
-              Open your meeting tab and click the FTC Transcribe icon in the toolbar. You can close this page.
+              Open your meeting tab and click the {PRODUCT_NAME} icon in the toolbar. You can close this page.
             </p>
           </div>
         ) : (
@@ -135,7 +136,7 @@ export default function ExtensionPage() {
                   className="w-full rounded-xl border border-surface-border bg-white text-black placeholder:text-gray-400 px-3 py-2.5 text-sm font-mono tracking-tight focus:outline-none focus:ring-2 focus:ring-brand/50"
                 />
                 <span className="block text-[11px] text-surface-muted leading-relaxed">
-                  From <code className="text-ftc-mid">chrome://extensions</code>, under FTC Transcribe.
+                  From <code className="text-ftc-mid">chrome://extensions</code>, under {PRODUCT_NAME}.
                   Only needed while the extension is loaded unpacked.
                 </span>
               </label>

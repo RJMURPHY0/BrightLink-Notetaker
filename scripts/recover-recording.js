@@ -111,7 +111,7 @@ if (!recordingId) {
     // Drive the deployed worker rather than importing the pipeline here:
     // finalize pulls in the native voice-id chain, which needs the Next.js
     // build and the ONNX models that ship with it, not a bare node process.
-    const base = process.env.APP_URL || 'https://ftctranscribe-phi.vercel.app';
+    const base = process.env.APP_URL || 'https://notetaker.brightlink.io';
     console.log(`\ntriggering the deployed worker at ${base}/api/jobs/finalize ...`);
     const res = await fetch(`${base}/api/jobs/finalize`, {
       headers: { authorization: `Bearer ${envLocal('CRON_SECRET')}` },

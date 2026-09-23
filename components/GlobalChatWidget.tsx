@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import BrandLogo from '@/components/BrandLogo';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -100,7 +101,7 @@ export default function GlobalChatWidget() {
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface-border flex items-center gap-2 flex-shrink-0 bg-surface-raised">
             <div className="flex-1 min-w-0 flex items-center">
-              <img src="/chatbot-logo.png" alt="FTC Chat Bot" style={{ height: '36px', objectFit: 'contain' }} />
+              <BrandLogo className="h-9 object-contain" />
             </div>
             {messages.length > 0 && (
               <button

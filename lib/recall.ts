@@ -14,6 +14,8 @@
 // per meeting-hour. So it is the premium path, not the default, and everything
 // here degrades to "not configured" without a key rather than failing.
 
+import { PRODUCT_NAME } from '@/lib/branding';
+
 const RECALL_API_KEY = process.env.RECALL_API_KEY;
 // Recall is region-pinned and the host differs per region. EU by default, to
 // match the dub1/EU-Supabase posture of the rest of this app.
@@ -94,7 +96,7 @@ export async function createBot(opts: {
     method: 'POST',
     body: JSON.stringify({
       meeting_url: opts.meetingUrl,
-      bot_name: opts.botName ?? 'FTC Transcribe',
+      bot_name: opts.botName ?? PRODUCT_NAME,
       recording_config: {
         transcript: {
           provider: { meeting_captions: {} },

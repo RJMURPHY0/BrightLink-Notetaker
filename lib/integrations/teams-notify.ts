@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { CANONICAL_ORIGIN } from "@/lib/branding";
 
 // The fallback used to be `DATABASE_URL.split("?")[0]`, which is a
 // `postgres://...` connection string, not a Supabase REST endpoint. SUPABASE_URL
@@ -14,7 +15,7 @@ const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 // emit `https://undefined` — breaking the "View Transcript" button in the card.)
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://ftctranscribe-phi.vercel.app");
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : CANONICAL_ORIGIN);
 
 interface NotifyPayload {
   recordingId: string;

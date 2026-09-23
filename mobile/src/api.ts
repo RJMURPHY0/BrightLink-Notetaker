@@ -1,4 +1,6 @@
-const BASE = 'https://ftctranscribe-phi.vercel.app';
+// Shipped builds cannot be updated in lockstep with a deploy, so the old
+// .vercel.app host stays a live alias. New builds use the canonical domain.
+const BASE = 'https://notetaker.brightlink.io';
 
 export interface Recording {
   id: string;

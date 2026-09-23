@@ -108,7 +108,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>FTC Transcribe</Text>
+        <Text style={styles.headerTitle}>BrightLink Notetaker</Text>
         <Pressable
           style={({ pressed }) => [styles.newBtn, pressed && styles.newBtnPressed]}
           onPress={() => router.push('/record')}

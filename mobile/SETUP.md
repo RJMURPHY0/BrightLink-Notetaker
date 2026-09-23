@@ -1,4 +1,4 @@
-# FTC Transcribe — iOS App
+# BrightLink Notetaker — iOS App
 
 ## Install Link (TestFlight)
 

@@ -1,8 +1,10 @@
-# FTC Transcribe
+# BrightLink Notetaker
 
 AI-powered meeting transcription app. Record meetings, get automatic transcripts with speaker labels, summaries, key points, action items, and decisions.
 
-**Web app:** https://ftctranscribe-phi.vercel.app
+**Web app:** https://notetaker.brightlink.io
+(the old `ftctranscribe-phi.vercel.app` host stays live as an alias for the
+published Chrome extension and shipped iOS builds)
 
 ---
 

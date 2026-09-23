@@ -1,3 +1,5 @@
+import { PRODUCT_NAME } from '@/lib/branding';
+
 export default function OfflinePage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-surface px-6 text-center gap-6">
@@ -9,7 +11,7 @@ export default function OfflinePage() {
       <div>
         <p className="font-semibold text-ftc-gray text-lg mb-1">You're offline</p>
         <p className="text-sm text-ftc-mid max-w-xs">
-          FTC Transcribe needs an internet connection to record and process meetings.
+          {PRODUCT_NAME} needs an internet connection to record and process meetings.
           Connect to Wi-Fi or mobile data and try again.
         </p>
       </div>

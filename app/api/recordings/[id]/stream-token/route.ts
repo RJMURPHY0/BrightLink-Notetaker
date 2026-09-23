@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { rateLimit } from '@/lib/rate-limit';
+import { PRODUCT_NAME } from '@/lib/branding';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,7 @@ export async function GET(_req: NextRequest) {
     method:  'POST',
     headers: { Authorization: `Token ${DG_KEY}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify({
-      comment:                  'FTC Transcribe live caption session',
+      comment:                  `${PRODUCT_NAME} live caption session`,
       scopes:                   ['usage:write'],
       time_to_live_in_seconds:  300,
     }),

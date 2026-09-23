@@ -100,7 +100,7 @@ function App() {
       {/* LEFT SIDEBAR */}
       <div className="sidebar">
         <div className="logo-container" style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/logo.png" alt="FTC Transcribe Logo" style={{ height: '40px', objectFit: 'contain' }} />
+          <img src="/logo.png" alt="BrightLink Notetaker" style={{ height: '40px', objectFit: 'contain' }} />
         </div>
         <div className="nav-menu">
           <div className="nav-item active">

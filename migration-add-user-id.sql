@@ -1,5 +1,5 @@
 -- Run this in the Supabase SQL editor for project ijeeghdxokfvlfarojlm
--- (the shared FTC Contacts / FTC Transcribe production database)
+-- (the shared BrightLink CRM / BrightLink Notetaker production database)
 
 -- 1. Per-user scoping on recordings and folders
 ALTER TABLE "Folder"    ADD COLUMN IF NOT EXISTS "userId" TEXT;
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS transcribe_permissions (
 
 ALTER TABLE transcribe_permissions ENABLE ROW LEVEL SECURITY;
 
--- Any authenticated user can read their own row (FTC Transcribe reads this to scope queries)
+-- Any authenticated user can read their own row (Notetaker reads this to scope queries)
 DROP POLICY IF EXISTS read_own ON transcribe_permissions;
 CREATE POLICY read_own ON transcribe_permissions
   FOR SELECT USING (user_id = auth.uid()::text);

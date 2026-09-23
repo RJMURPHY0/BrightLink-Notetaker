@@ -12,6 +12,7 @@ import { corsHeaders, isAllowedOrigin } from '@/lib/cors';
 import {
   isRecallReady, createBot, leaveCall, isSupportedMeetingUrl, providerFromMeetingUrl,
 } from '@/lib/recall';
+import { PRODUCT_NAME } from '@/lib/branding';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
   try {
     const bot = await createBot({
       meetingUrl,
-      botName: body.botName?.slice(0, 60) || 'FTC Transcribe',
+      botName: body.botName?.slice(0, 60) || PRODUCT_NAME,
       webhookUrl: `${base}/api/recall/webhook`,
       recordingId: recording.id,
     });

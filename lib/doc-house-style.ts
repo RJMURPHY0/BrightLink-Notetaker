@@ -1,4 +1,4 @@
-// FTC house style for exported meeting documents (.docx and .pdf).
+// House style for exported meeting documents (.docx and .pdf).
 //
 // Ported from Document Studio in the Contacts app (src/features/documents/lib/
 // houseStyle.ts + reformat.ts), which learned these tokens from the approved
@@ -13,6 +13,8 @@
 //   · sub-headings in bold charcoal over a 2px orange rule
 //   · two-column data (timestamp + topic) as a zebra-striped spec table
 //   · Avenir Black headings / Avenir Roman body, Arial-safe for Word
+
+import { PRODUCT_NAME } from '@/lib/branding';
 
 export const DOC = {
   /** FTC primary — matches the app's --c-brand so screen and paper agree. */
@@ -47,7 +49,7 @@ export const FONT_HEADING = 'Arial';
 export const FONT_BODY = 'Arial';
 
 /** Masthead strapline, left of the document title. */
-export const MASTHEAD = 'FTC TRANSCRIBE';
+export const MASTHEAD = PRODUCT_NAME.toUpperCase();
 
 /**
  * Section order — single source of truth for both exporters.

@@ -7,43 +7,50 @@
      RGB channel triples consumed by tailwind.config.ts as
      rgb(var(--c-x) / <alpha-value>). Default (:root) is LIGHT; the .dark
      class (set by the pre-paint script in layout.tsx, key "ftc-theme")
-     layers the original dark palette on top. Brand orange is shared, so
-     it lives only on :root and .dark inherits it. */
+     layers the dark palette on top. Brand orange is shared, so it lives
+     only on :root and .dark inherits it.
+
+     Values are the BrightLink CRM's own tokens (src/index.css there),
+     converted from HSL to channel triples, so Notetaker and the CRM are the
+     same product to look at — which matters because the plan is to open these
+     notes inside the CRM. Each line names the CRM token it came from.
+     --c-surface-muted has no CRM counterpart: it is the tertiary text step,
+     fainter than --c-ftc-mid, tuned against these surfaces. */
   :root {
     color-scheme: light;
 
-    /* surfaces — warm off-white page, white cards */
-    --c-surface:        237 236 233;
-    --c-surface-card:   255 255 255;
-    --c-surface-raised: 238 237 234;
-    --c-surface-border: 224 222 217;
-    --c-surface-muted:  120 117 110; /* faint text / hover border — readable */
-    --c-surface-dark:   87 85 79;
+    /* surfaces */
+    --c-surface:        234 236 240; /* CRM --background     220 18% 93% */
+    --c-surface-card:   255 255 255; /* CRM --card           0 0% 100%   */
+    --c-surface-raised: 232 234 237; /* CRM --muted          220 14% 92% */
+    --c-surface-border: 214 218 224; /* CRM --border         220 14% 86% */
+    --c-surface-muted:  130 137 150; /* tertiary text / hover border      */
+    --c-surface-dark:    54  54  53; /* CRM --sidebar-background 60 1% 21% */
 
-    /* FTC primary orange — same accent in both themes */
-    --c-brand-light: 245 168 48;
-    --c-brand:       243 146 0;
-    --c-brand-dark:  217 127 0;
+    /* BrightLink orange — same accent in both themes */
+    --c-brand-light: 255 173 51; /* CRM --orange-400        */
+    --c-brand:       243 146 0;  /* CRM --primary / #f39200 */
+    --c-brand-dark:  200 122 0;  /* CRM --color-primary-dark / #c87a00 */
 
     /* text greys */
-    --c-ftc-gray: 28 27 24;   /* primary text — near-black */
-    --c-ftc-mid:  92 90 84;   /* secondary / muted text */
-    --c-ftc-dark: 87 85 79;
+    --c-ftc-gray: 26 29 35; /* CRM --foreground       222 15% 12% */
+    --c-ftc-mid:  75 82 98; /* CRM --muted-foreground 222 13% 34% */
+    --c-ftc-dark: 54 54 53;
   }
 
   .dark {
     color-scheme: dark;
 
-    --c-surface:        14 14 13;
-    --c-surface-card:   24 24 23;
-    --c-surface-raised: 34 34 33;
-    --c-surface-border: 46 46 44;
-    --c-surface-muted:  58 58 56;
-    --c-surface-dark:   78 78 76;
+    --c-surface:         26  26  26; /* CRM --background 0 0% 10% */
+    --c-surface-card:    36  36  36; /* CRM --card       0 0% 14% */
+    --c-surface-raised:  46  46  46; /* CRM --muted      0 0% 18% */
+    --c-surface-border:  51  51  51; /* CRM --border     0 0% 20% */
+    --c-surface-muted:  110 110 110; /* tertiary text             */
+    --c-surface-dark:    54  54  53;
 
-    --c-ftc-gray: 218 218 218;
-    --c-ftc-mid:  160 160 158;
-    --c-ftc-dark: 78 78 76;
+    --c-ftc-gray: 235 235 235; /* CRM --foreground       0 0% 92% */
+    --c-ftc-mid:  140 140 140; /* CRM --muted-foreground 0 0% 55% */
+    --c-ftc-dark: 54 54 53;
   }
 
   html {
@@ -67,7 +74,7 @@
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: rgb(var(--c-surface-muted));
+    background: rgb(var(--c-surface-border));
     border-radius: 99px;
     border: 3px solid transparent;
     background-clip: padding-box;
@@ -79,7 +86,7 @@
     border-width: 2px;
   }
   /* Firefox */
-  * { scrollbar-color: rgb(var(--c-surface-muted)) transparent; }
+  * { scrollbar-color: rgb(var(--c-surface-border)) transparent; }
 
   /* ── Light-mode contrast fixes ──
      A few Tailwind palette colours are tuned for dark backgrounds and go
@@ -89,13 +96,10 @@
   html:not(.dark) .text-red-400     { color: #dc2626; }
   html:not(.dark) .text-brand       { color: #b45f00; }
 
-  /* The FTC logo asset is the white-on-dark version. In light mode, invert its
-     lightness (white text/globe → dark) while hue-rotate keeps the orange leaf
-     orange — a readable colour logo on light backgrounds. Excludes the chatbot
-     logo (chatbot-logo.png). */
-  html:not(.dark) img[src$="/logo.png"] {
-    filter: invert(1) hue-rotate(180deg);
-  }
+  /* The light-mode logo used to be logo.png run through an invert filter,
+     which is why the orange needed a hue-rotate to survive. There is now a real
+     on-light asset (public/logo-light.png) and components/BrandLogo swaps the
+     pair on the theme class, so no filter is involved. */
 }
 
 /* ── Auth inputs ──

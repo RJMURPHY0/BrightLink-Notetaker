@@ -12,7 +12,7 @@
 // never enters a page context.
 
 import { getToken, clearToken, setToken } from './auth.js';
-import { apiBase } from './config.js';
+import { apiBase, DEFAULT_API_BASE, LEGACY_API_BASE } from './config.js';
 
 const OFFSCREEN_PATH = 'offscreen.html';
 
@@ -337,7 +337,8 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
     // Only the app's own origins can pair, enforced again here rather than
     // trusting the manifest's externally_connectable alone.
     const origin = new URL(sender.url ?? '').origin;
-    const allowed = origin === 'https://ftctranscribe-phi.vercel.app'
+    const allowed = origin === DEFAULT_API_BASE
+      || origin === LEGACY_API_BASE
       || /^http:\/\/localhost:\d+$/.test(origin);
     if (!allowed) {
       sendResponse({ ok: false, error: 'Origin not allowed.' });

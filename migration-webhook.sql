@@ -6,7 +6,7 @@ CREATE OR REPLACE TRIGGER "auto_fix_trigger"
   AFTER INSERT ON "public"."error_logs"
   FOR EACH ROW
   EXECUTE FUNCTION supabase_functions.http_request(
-    'https://ftctranscribe.vercel.app/api/auto-fix',
+    'https://notetaker.brightlink.io/api/auto-fix',
     'POST',
     '{"Content-Type":"application/json","X-Auto-Fix-Secret":"d89d89486d47afa6f8a5f421bc89b012b63c64aa9428a82bf770d3515802efed"}',
     '{}',

@@ -1,4 +1,4 @@
-const CACHE = 'ftctranscribe-v3';
+const CACHE = 'notetaker-v1';
 const SHELL = ['/', '/record', '/settings', '/offline'];
 
 // Install: pre-cache app shell

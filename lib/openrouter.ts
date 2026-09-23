@@ -7,6 +7,8 @@
 // Override with OPENROUTER_MODELS="model-a,model-b" env var; free model IDs
 // churn every few months, so expect to refresh this list.
 
+import { PRODUCT_NAME, CANONICAL_ORIGIN } from '@/lib/branding';
+
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 export const isOpenRouterReady = !!OPENROUTER_KEY;
 
@@ -75,8 +77,8 @@ export async function openRouterCompleteDetailed(
         headers: {
           'Authorization': `Bearer ${OPENROUTER_KEY}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://ftctranscribe.vercel.app',
-          'X-Title': 'FTC Transcribe',
+          'HTTP-Referer': CANONICAL_ORIGIN,
+          'X-Title': PRODUCT_NAME,
         },
         body: JSON.stringify({
           model,
