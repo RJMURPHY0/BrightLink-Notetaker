@@ -26,6 +26,12 @@ export const PRODUCT_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'BrightLink Note
 /** The product's own name, as the BrightLink | Notetaker lockup shows it. */
 export const PRODUCT_SHORT_NAME = 'Notetaker';
 
+/**
+ * Browser tab title. Product first so a row of BrightLink tabs (CRM, Notetaker)
+ * can be told apart at a glance; the family name trails.
+ */
+export const TAB_TITLE = `${PRODUCT_SHORT_NAME} | BrightLink`;
+
 /** The registered legal name, exactly as Companies House shows it (17459281). */
 export const COMPANY_NAME = 'BRIGHTLINK (OS) LTD';
 

@@ -4,7 +4,7 @@ import './globals.css';
 import GlobalChatWidget from '@/components/GlobalChatWidget';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import LiveFxSync from '@/components/LiveFxSync';
-import { PRODUCT_NAME } from '@/lib/branding';
+import { PRODUCT_SHORT_NAME, TAB_TITLE } from '@/lib/branding';
 
 // Brand font parity with the BrightLink CRM (Inter). Exposed as a CSS variable so
 // tailwind.config's fontFamily.sans picks it up app-wide.
@@ -15,13 +15,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: `${PRODUCT_NAME} – AI Meeting Notes`,
+  title: TAB_TITLE,
   description: 'Record any conversation and get an instant transcript, summary, and action items powered by AI.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: PRODUCT_NAME,
+    title: PRODUCT_SHORT_NAME,
   },
 };
 
