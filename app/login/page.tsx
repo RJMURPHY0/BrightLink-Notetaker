@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Mic, Users, FileText, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { PRODUCT_NAME } from '@/lib/branding';
+import { PRODUCT_NAME, COMPANY_NAME } from '@/lib/branding';
 import BrandLogo from '@/components/BrandLogo';
 
 // Product value points for the brand panel. Brand-neutral wording so the
@@ -88,7 +88,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-xs text-ftc-mid">
-            © {new Date().getFullYear()} FTC Safety Solutions. All rights reserved.
+            © {new Date().getFullYear()} {COMPANY_NAME}. All rights reserved.
           </p>
         </aside>
 

@@ -96,10 +96,16 @@
   html:not(.dark) .text-red-400     { color: #dc2626; }
   html:not(.dark) .text-brand       { color: #b45f00; }
 
-  /* The light-mode logo used to be logo.png run through an invert filter,
-     which is why the orange needed a hue-rotate to survive. There is now a real
-     on-light asset (public/logo-light.png) and components/BrandLogo swaps the
-     pair on the theme class, so no filter is involved. */
+  /* The logo is a pair — public/logo.png reversed for the dark theme,
+     public/logo-light.png for the light one — and components/BrandLogo renders
+     both, letting the theme hide one. It used to be a single asset run through
+     an invert filter, which is why the orange needed a hue-rotate to survive.
+
+     Hidden here rather than with a `dark:` utility on the image: `dark:block`
+     compiles to `.dark .dark\:block`, two classes, which outranks a caller's
+     own `lg:hidden` and left the mobile copy on screen at desktop width. */
+  html:not(.dark) .brand-on-dark  { display: none !important; }
+  html.dark       .brand-on-light { display: none !important; }
 }
 
 /* ── Auth inputs ──
