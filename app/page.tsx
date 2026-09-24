@@ -326,11 +326,14 @@ export default async function Home({
           ticks (z-20), which scroll up through the same column underneath it. */}
       {/* data-nt-chrome: inside BrightLink its own header carries these. */}
       <header data-nt-chrome className="sticky top-0 z-30 border-b border-surface-border bg-surface/80 backdrop-blur-md">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center h-12">
-            <BrandLogo className="h-full object-contain" />
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          {/* Phones get the stacked lockup and a one-word button: the wide
+              logo left no room and "New Recording" wrapped onto two lines. */}
+          <div className="flex items-center h-10 sm:h-12 min-w-0">
+            <BrandLogo stacked className="h-full w-auto object-contain sm:hidden" />
+            <BrandLogo className="h-full object-contain hidden sm:block" />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <LogoutButton />
             <Link
               href="/settings"
@@ -339,12 +342,13 @@ export default async function Home({
             >
               <Settings className="w-5 h-5" strokeWidth={1.75} />
             </Link>
-            <Link href="/record" className="btn-brand flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white touch-manipulation">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <Link href="/record" aria-label="New Recording" className="btn-brand flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold text-white whitespace-nowrap touch-manipulation">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
                 <circle cx="12" cy="12" r="9" />
               </svg>
-              New Recording
+              <span className="sm:hidden">Record</span>
+              <span className="hidden sm:inline">New Recording</span>
             </Link>
           </div>
         </div>
