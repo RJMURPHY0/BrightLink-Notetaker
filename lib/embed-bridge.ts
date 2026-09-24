@@ -55,10 +55,17 @@ function configuredHosts(): string[] {
   return [...DEFAULT_HOSTS, ...extra];
 }
 
-/** The pages allowed to embed this app. In development, any localhost port too. */
+/**
+ * The pages allowed to embed this app, plus BrightLink's dev server on this
+ * machine's localhost. Accepting a localhost parent is safe in production:
+ * frame-ancestors (next.config.js) never names localhost, so no localhost page
+ * can frame notetaker.brightlink.io at all. The only localhost frame is a copy
+ * served from localhost by BrightLink's own dev proxy
+ * (Brightlink scripts/vite-notetaker-proxy.ts), run by the developer.
+ */
 export function isAllowedHostOrigin(origin: string): boolean {
   if (configuredHosts().includes(origin)) return true;
-  return process.env.NODE_ENV === 'development' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
 
 /** True inside any frame. Cross-origin access to window.top throws in some browsers. */

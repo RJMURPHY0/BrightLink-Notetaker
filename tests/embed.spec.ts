@@ -27,9 +27,10 @@ test.describe('BrightLink embed bridge', () => {
     expect(isAllowedHostOrigin('https://evil.example')).toBe(false);
     expect(isAllowedHostOrigin('https://app.brightlink.io.evil.example')).toBe(false);
     expect(isAllowedHostOrigin('http://app.brightlink.io')).toBe(false);
-    if (process.env.NODE_ENV !== 'development') {
-      expect(isAllowedHostOrigin('http://localhost:5196')).toBe(false);
-    }
+    // BrightLink's dev server, reaching the Notetaker through its local proxy.
+    expect(isAllowedHostOrigin('http://localhost:8080')).toBe(true);
+    expect(isAllowedHostOrigin('http://localhost.evil.example:8080')).toBe(false);
+    expect(isAllowedHostOrigin('https://localhost:8080')).toBe(false);
   });
 });
 
