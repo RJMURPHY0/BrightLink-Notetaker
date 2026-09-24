@@ -19,6 +19,9 @@ const CUID_RE = /^c[a-z0-9]{20,}$/;
  */
 const CRM_ORIGINS = [
   'https://app.brightlink.io',
+  // The CRM is served on www too until the marketing site moves to its own
+  // project, and people are signed in there (every frame failure on 2026-09-24).
+  'https://www.brightlink.io',
   ...(process.env.CRM_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
 ];
 

@@ -44,7 +44,8 @@ export type GuestMessage =
 /** Fired on window when BrightLink asks the recorder to stop and save. */
 export const STOP_RECORDING_EVENT = 'bl:stop-recording';
 
-const DEFAULT_HOSTS = ['https://app.brightlink.io'];
+// www serves the CRM too until the marketing site moves to its own project.
+const DEFAULT_HOSTS = ['https://app.brightlink.io', 'https://www.brightlink.io'];
 
 function configuredHosts(): string[] {
   const extra = (process.env.NEXT_PUBLIC_CRM_ORIGINS ?? '')

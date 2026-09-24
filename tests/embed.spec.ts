@@ -23,6 +23,7 @@ test.describe('BrightLink embed bridge', () => {
 
   test('only BrightLink may drive the frame', () => {
     expect(isAllowedHostOrigin('https://app.brightlink.io')).toBe(true);
+    expect(isAllowedHostOrigin('https://www.brightlink.io')).toBe(true);
     expect(isAllowedHostOrigin('https://evil.example')).toBe(false);
     expect(isAllowedHostOrigin('https://app.brightlink.io.evil.example')).toBe(false);
     expect(isAllowedHostOrigin('http://app.brightlink.io')).toBe(false);
@@ -37,7 +38,7 @@ test.describe('framing headers', () => {
     const res = await request.get('/install');
     expect(res.status()).toBe(200);
     const csp = res.headers()['content-security-policy'] ?? '';
-    expect(csp).toContain("frame-ancestors 'self' https://app.brightlink.io");
+    expect(csp).toContain("frame-ancestors 'self' https://app.brightlink.io https://www.brightlink.io");
     expect(csp).not.toContain("frame-ancestors 'none'");
     expect(res.headers()['x-frame-options']).toBeUndefined();
   });

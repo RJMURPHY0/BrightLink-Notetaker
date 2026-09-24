@@ -22,6 +22,19 @@ import { isFramed, onHostMessage, postToHost } from '@/lib/embed-bridge';
 
 const HOST_REPLY_MS = 15_000;
 
+// Neither auth call may hold the page up: BrightLink restarts a frame that has
+// not asked to sign in within a few seconds, and a slow "who am I" check is
+// cheaper treated as "nobody" (BrightLink then sends a token) than waited on.
+const WHO_AM_I_MS = 3_000;
+const REDEEM_MS = 15_000;
+
+function within<T>(p: Promise<T>, ms: number, fallback: () => T): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => { try { resolve(fallback()); } catch (e) { reject(e); } }, ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 // A sign-in that keeps bouncing (this page → /login → back here) is stopped
 // and said, never looped. Only bounces count, so "Try again" always works.
 const LOOP_KEY = 'bl-sso-attempts';
@@ -75,7 +88,11 @@ export default function SsoPage() {
       postToHost({ type: 'auth-failed', message });
     };
     const redeem = async (tokenHash: string) => {
-      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+      const { error } = await within(
+        supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' }),
+        REDEEM_MS,
+        () => { throw new Error('signing in took too long'); },
+      );
       if (error) throw error;
     };
 
@@ -112,8 +129,11 @@ export default function SsoPage() {
 
         if (isFramed()) {
           // Who this app is signed in as now, verified with the auth server.
-          const { data } = await supabase.auth.getUser();
-          const currentUserId = data.user?.id ?? null;
+          const currentUserId = await within(
+            supabase.auth.getUser().then(({ data }) => data.user?.id ?? null, () => null),
+            WHO_AM_I_MS,
+            () => null,
+          );
 
           const reply = await new Promise<HostReply>((resolve) => {
             let timer: ReturnType<typeof setTimeout> | undefined;

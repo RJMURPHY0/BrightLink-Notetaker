@@ -1,5 +1,9 @@
-const CACHE = 'notetaker-v1';
-const SHELL = ['/', '/record', '/settings', '/offline'];
+// v2: v1 pre-cached '/', '/record' and '/settings' while signed out, so it held
+// the login page under those names, and it cached every signed-in page's HTML
+// (one person's meetings, kept for whoever uses the browser next). Pages are no
+// longer cached at all; only the offline page is.
+const CACHE = 'notetaker-v2';
+const SHELL = ['/offline'];
 
 // Install: pre-cache app shell
 self.addEventListener('install', (e) => {
@@ -48,21 +52,14 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Navigation (HTML pages) — network first, fall back to cache then offline page
+  // Navigation (HTML pages) — always the network; the offline page only when
+  // there is no network. A page is never served from cache: it is signed-in
+  // content, and a stale copy (or the login page) would be shown as current.
   if (request.mode === 'navigate') {
     e.respondWith(
-      fetch(request)
-        .then((res) => {
-          // Cache successful navigation responses
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE).then((c) => c.put(request, clone));
-          }
-          return res;
-        })
-        .catch(() =>
-          caches.match(request).then((hit) => hit ?? caches.match('/offline'))
-        )
+      fetch(request).catch(() =>
+        caches.match('/offline').then((hit) => hit ?? Response.error())
+      )
     );
   }
 });
