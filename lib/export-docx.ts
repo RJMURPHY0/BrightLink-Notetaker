@@ -19,7 +19,7 @@ import {
   DOC, hex6, FONT_HEADING, FONT_BODY, MASTHEAD, SECTION_LABELS,
   formatClock, formatLongDate, formatShortDate,
 } from '@/lib/doc-house-style';
-import { hasDecisions, type MeetingDoc } from '@/lib/export-doc';
+import { hasDecisions, docLogoSize, DOC_LOGO_WIDTH_IN, type MeetingDoc } from '@/lib/export-doc';
 
 // Word wants bare 6-char hex, no '#'
 const ORANGE  = hex6(DOC.orange);
@@ -93,7 +93,7 @@ const TICK   = '✓';
 
 function logoParagraph(data: Buffer): Paragraph {
   return new Paragraph({
-    children: [new ImageRun({ data, transformation: { width: 132, height: 57 }, type: 'png' })],
+    children: [new ImageRun({ data, transformation: docLogoSize(data, DOC_LOGO_WIDTH_IN * 96), type: 'png' })],
     spacing: { before: 0, after: 200 },
   });
 }

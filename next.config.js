@@ -57,9 +57,9 @@ const voiceIdTraceIncludes = [
 // see it and the serverless bundle shipped without it — the logo silently
 // vanished from every document generated in production while still appearing
 // in local builds. Force-trace it.
+// Must match DOC_LOGO_FILE in lib/export-doc.ts.
 const docLogoTraceIncludes = [
-  './public/logo-dark.png',
-  './public/logo.png',
+  './public/logo-light.png',
 ];
 
 const nextConfig = {

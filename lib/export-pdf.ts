@@ -12,7 +12,7 @@ import {
   DOC, MASTHEAD, SECTION_LABELS,
   formatClock, formatLongDate, formatShortDate,
 } from '@/lib/doc-house-style';
-import { hasDecisions, type MeetingDoc } from '@/lib/export-doc';
+import { hasDecisions, docLogoSize, DOC_LOGO_WIDTH_IN, type MeetingDoc } from '@/lib/export-doc';
 
 // @react-pdf ships no Avenir, so the house heading/body pair maps onto the
 // metric-similar built-in Helvetica — the same substitution Word makes on a
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Masthead ──
-  logo: { width: 116, height: 50, marginBottom: 14 },
+  logo: { marginBottom: 16 },
   mastheadBand: {
     backgroundColor: DOC.header,
     paddingVertical: 9,
@@ -139,7 +139,7 @@ function MeetingPDF({ doc, logo }: { doc: MeetingDoc; logo: Buffer | null }) {
       el(Page, { size: 'A4', style: styles.page },
 
         /* Masthead: dark wordmark, charcoal band, orange accent rule */
-        logo && el(Image, { src: { data: logo, format: 'png' as const }, style: styles.logo }),
+        logo && el(Image, { src: { data: logo, format: 'png' as const }, style: [styles.logo, docLogoSize(logo, DOC_LOGO_WIDTH_IN * 72)] }),
         el(View, { style: styles.mastheadBand },
           el(Text, { style: styles.mastheadText }, `${MASTHEAD}   |   MEETING NOTES`),
         ),

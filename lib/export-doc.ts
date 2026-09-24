@@ -65,17 +65,33 @@ export function exportFilename(title: string): string {
 }
 
 /**
- * Documents are light surfaces, so they take the on-light lockup — the
- * reversed (white "Bright") mark the app uses on its dark UI is invisible on
- * paper. Falls back to the reversed mark if the light artwork is ever missing.
+ * Documents are light surfaces, so they take the on-light lockup (grey
+ * "Bright"). The reversed mark the app uses on its dark UI is invisible on
+ * paper, so there is no fallback to it: no logo beats a broken one. The file
+ * must be force-traced in next.config.js or production ships without it.
  */
+export const DOC_LOGO_FILE = 'logo-light.png';
+
 export async function readDocLogo(): Promise<Buffer | null> {
   const { readFile } = await import('fs/promises');
   const { join } = await import('path');
-  for (const file of ['logo-light.png', 'logo.png']) {
-    try {
-      return await readFile(join(process.cwd(), 'public', file));
-    } catch { /* try the next candidate */ }
+  try {
+    return await readFile(join(process.cwd(), 'public', DOC_LOGO_FILE));
+  } catch (err) {
+    console.error(`[export] ${DOC_LOGO_FILE} missing from the bundle`, err);
+    return null;
   }
-  return null;
+}
+
+/** Width of the logo in both documents: 2.5in. */
+export const DOC_LOGO_WIDTH_IN = 2.5;
+
+/**
+ * Logo box at `widthUnits` wide, height from the PNG's own aspect ratio, so
+ * swapping the artwork never stretches it. Reads the IHDR chunk directly.
+ */
+export function docLogoSize(png: Buffer, widthUnits: number): { width: number; height: number } {
+  const w = png.readUInt32BE(16);
+  const h = png.readUInt32BE(20);
+  return { width: widthUnits, height: Math.round((widthUnits * h) / w * 10) / 10 };
 }
