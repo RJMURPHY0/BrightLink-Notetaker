@@ -64,9 +64,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {process.env.NEXT_PUBLIC_SUPABASE_URL && (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
         )}
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=4" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=4" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=4" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=5" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=5" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=5" />
       </head>
       <body className="min-h-screen">
         {children}
