@@ -44,9 +44,12 @@ export function rankMic(label: string): number {
 // 'communications' duplicating a real device. Rank only real devices; use the
 // 'default' pseudo label (minus its prefix) to break ties, mirroring
 // Whisper's OS-default tie-break.
-export function pickBestMic(devices: MicDevice[]): MicDevice | null {
+//
+// `exclude` holds devices already proven dead in this session (they delivered
+// digital silence), so a fallback never lands back on one of them.
+export function pickBestMic(devices: MicDevice[], exclude: ReadonlySet<string> = new Set()): MicDevice | null {
   const real = devices.filter(
-    d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications'
+    d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications' && !exclude.has(d.deviceId)
   );
   if (!real.length) return null;
   const defaultEntry = devices.find(d => d.deviceId === 'default');
@@ -88,4 +91,41 @@ export async function getAudioConstraint(): Promise<MediaTrackConstraints | bool
     if (best && best.label) return { deviceId: { ideal: best.deviceId } };
   } catch {}
   return true;
+}
+
+/**
+ * The next microphone to try once the current one has proven dead, or null
+ * when every device on this machine has been tried.
+ *
+ * Used whatever the saved preference says: a microphone that delivers pure
+ * digital silence (muted in the OS, a switched-off headset whose dongle is
+ * still plugged in, a dock with nothing in its jack) records nothing, and no
+ * one choosing a device means "record nothing". The recorder tells the user
+ * which device it moved to.
+ */
+export async function getFallbackAudioConstraint(dead: ReadonlySet<string>): Promise<MediaTrackConstraints | null> {
+  try {
+    const next = pickBestMic(await listMics(), dead);
+    if (next) return { deviceId: { exact: next.deviceId } };
+  } catch {}
+  return null;
+}
+
+/**
+ * Every device id that is the same physical microphone as this track.
+ *
+ * A track opened on the OS default reports the pseudo id 'default' and a label
+ * like "Default - Microphone Array (Realtek)". Marking only 'default' dead
+ * would let the fallback pick the very same microphone under its real id, so
+ * the real entry is matched by label too.
+ */
+export function sameDeviceIds(trackDeviceId: string, trackLabel: string, devices: MicDevice[]): string[] {
+  const strip = (l: string) => l.replace(/^(default|communications)\s*-\s*/i, '').trim().toLowerCase();
+  const label = strip(trackLabel);
+  const ids = new Set<string>();
+  if (trackDeviceId) ids.add(trackDeviceId);
+  for (const d of devices) {
+    if (label && strip(d.label) === label) ids.add(d.deviceId);
+  }
+  return Array.from(ids);
 }

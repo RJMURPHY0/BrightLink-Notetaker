@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getAudioConstraint } from '@/lib/mic-select';
+import { getAudioConstraint, getFallbackAudioConstraint, listMics, sameDeviceIds } from '@/lib/mic-select';
+import { shouldSkipSilentChunk, AUDIBLE_RMS } from '@/lib/chunk-skip';
 import { KeepAwake, preloadKeepAwake } from '@/lib/keep-awake';
 import {
   detectCaptureSupport,
@@ -45,7 +46,6 @@ const SILENCE_RMS = 0.01;
 // The server skips these regardless; this simply avoids spending an upload, a
 // database row and a provider call on nothing.
 const MIN_SEGMENT_MS = 500;
-const SKIP_SPEECH_RATIO = 0.04; // skip upload if < 4% of chunk is speech
 // MediaRecorder is asked for data every 500 ms. If nothing arrives for this
 // long the recorder is wedged or the page was frozen by the OS (screen lock,
 // app switch, Low Power Mode) — audio for that window is already lost, so the
@@ -59,6 +59,12 @@ const STALL_MS = 12_000;
 // dead. Warn only until the first sound is heard: once a mic has carried
 // sound it works, and a quiet stretch in a meeting is normal.
 const MIC_SILENT_MS = 8_000;
+// A microphone that is muted in the OS, or a headset that is switched off while
+// its dongle or dock stays plugged in, delivers pure digital silence — far
+// below any real room's noise floor. After this long of that, the recorder
+// moves to the next microphone on the machine instead of recording nothing.
+const DEAD_MIC_MS = 4_000;
+const DEAD_MIC_RMS = 0.0001;
 const STALL_POLL_MS = 3_000;
 
 const MEETING_TYPES: { id: MeetingType; label: string; icon: string }[] = [
@@ -104,6 +110,8 @@ export default function RecordPage() {
   const [stalled,       setStalled]       = useState(false);
   const [micSilent,     setMicSilent]     = useState(false);
   const [micLabel,      setMicLabel]      = useState('');
+  // Set when the recorder moved off a dead microphone, so the user knows.
+  const [micNotice,     setMicNotice]     = useState('');
   // What this browser/OS can actually capture, and whether a meeting app looks
   // to be installed. Resolved on mount because both need `navigator`.
   const [capture,       setCapture]       = useState<CaptureSupport | null>(null);
@@ -165,9 +173,18 @@ export default function RecordPage() {
   const analyserRef     = useRef<AnalyserNode | null>(null);
   const audioCtxRef     = useRef<AudioContext | null>(null);
   const vadIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const speechMsRef     = useRef(0); // ms of detected speech in current 2-min window
+  // Per chunk window, for the silent-chunk skip (lib/chunk-skip.ts): how much
+  // of the window the meter actually watched, and how much of that was sound.
+  const measuredMsRef   = useRef(0);
+  const audibleMsRef    = useRef(0);
   const heardRef        = useRef(false); // any sound since this mic stream opened
   const vadStartedAtRef = useRef(0);     // 0 = VAD not running
+  // Dead-microphone detection, per mic stream.
+  const openMeasuredRef = useRef(0);     // ms the meter has watched this stream
+  const openPeakRef     = useRef(0);     // loudest frame on this stream
+  const deadHandledRef  = useRef(false); // already acted on for this stream
+  const deadMicsRef     = useRef<Set<string>>(new Set());
+  const deadMicRef      = useRef<(() => Promise<void>) | null>(null);
 
   // Timer — runs only while actively recording (frozen while paused).
   // Derived from wall-clock timestamps rather than counting ticks: when the OS
@@ -206,9 +223,23 @@ export default function RecordPage() {
     return () => clearInterval(id);
   }, [state, isPaused]);
 
+  // The microphone to open: the saved or auto-picked one, unless this session
+  // has already proven devices dead, in which case never go back to them —
+  // otherwise a resume or a stall recovery would reopen the silent headset.
+  const micConstraint = useCallback(async (): Promise<MediaTrackConstraints | boolean> => {
+    if (deadMicsRef.current.size > 0) {
+      const fallback = await getFallbackAudioConstraint(deadMicsRef.current);
+      if (fallback) return fallback;
+    }
+    return getAudioConstraint();
+  }, []);
+
   const startVAD = useCallback((stream: MediaStream) => {
     heardRef.current = false;
     vadStartedAtRef.current = 0;
+    openMeasuredRef.current = 0;
+    openPeakRef.current = 0;
+    deadHandledRef.current = false;
     setMicLabel(stream.getAudioTracks()[0]?.label ?? '');
     try {
       const ctx = new AudioContext();
@@ -221,22 +252,34 @@ export default function RecordPage() {
       src.connect(analyser);
       audioCtxRef.current = ctx;
       analyserRef.current = analyser;
-      speechMsRef.current = 0;
       vadStartedAtRef.current = Date.now();
 
       vadIntervalRef.current = setInterval(() => {
         const a = analyserRef.current;
         if (!a) return;
-        // Only time silence while the context is actually delivering samples.
-        if (ctx.state !== 'running' && !heardRef.current) vadStartedAtRef.current = Date.now();
+        // Only judge while the context is actually delivering samples: a
+        // suspended context reads pure zeros, which is not a dead microphone.
+        if (ctx.state !== 'running') {
+          if (!heardRef.current) vadStartedAtRef.current = Date.now();
+          return;
+        }
         const buf = new Float32Array(a.fftSize);
         a.getFloatTimeDomainData(buf);
         let sum = 0;
         for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
         const rms = Math.sqrt(sum / buf.length);
-        if (rms > SILENCE_RMS) {
-          speechMsRef.current += 100;
-          heardRef.current = true;
+        measuredMsRef.current += 100;
+        if (rms > AUDIBLE_RMS) audibleMsRef.current += 100;
+        if (rms > SILENCE_RMS) heardRef.current = true;
+        openMeasuredRef.current += 100;
+        if (rms > openPeakRef.current) openPeakRef.current = rms;
+        if (
+          !deadHandledRef.current &&
+          openMeasuredRef.current >= DEAD_MIC_MS &&
+          openPeakRef.current < DEAD_MIC_RMS
+        ) {
+          deadHandledRef.current = true;
+          void deadMicRef.current?.();
         }
         setVoiceLevel(Math.min(1, rms / 0.06));
       }, 100);
@@ -251,7 +294,6 @@ export default function RecordPage() {
     audioCtxRef.current?.close().catch(() => {});
     audioCtxRef.current = null;
     setVoiceLevel(0);
-    speechMsRef.current = 0;
     vadStartedAtRef.current = 0;
   }, []);
 
@@ -326,7 +368,7 @@ export default function RecordPage() {
 
     let mic: MediaStream;
     try {
-      const base = await getAudioConstraint();
+      const base = await micConstraint();
       mic = await navigator.mediaDevices.getUserMedia({
         audio: {
           ...(typeof base === 'object' ? base : {}),
@@ -610,10 +652,10 @@ export default function RecordPage() {
     const offset = timeOffsetRef.current;
     const duration = (Date.now() - chunkStartRef.current) / 1000;
 
-    // Capture and reset speech tracking for this window
-    const speechMs = speechMsRef.current;
-    speechMsRef.current = 0;
-    const speechRatio = duration > 0 ? speechMs / (duration * 1000) : 1;
+    // Capture and reset the level meter's view of this window
+    const meter = { durationMs: duration * 1000, measuredMs: measuredMsRef.current, audibleMs: audibleMsRef.current };
+    measuredMsRef.current = 0;
+    audibleMsRef.current = 0;
 
     chunkBlobsRef.current = [];
     timeOffsetRef.current += duration;
@@ -646,8 +688,9 @@ export default function RecordPage() {
 
     const blob = new Blob(blobsForUpload, { type: mimeRef.current });
     if (blob.size >= 1000 && duration * 1000 >= MIN_SEGMENT_MS) {
-      // Skip silent chunks — saves Whisper/Deepgram API cost
-      if (speechRatio < SKIP_SPEECH_RATIO) {
+      // Skip silent chunks — saves Whisper/Deepgram API cost. Only when the
+      // meter watched the window and heard nothing (lib/chunk-skip.ts).
+      if (shouldSkipSilentChunk(meter)) {
         return;
       }
       try {
@@ -667,6 +710,9 @@ export default function RecordPage() {
     recorderRef.current = mr;
     chunkBlobsRef.current = [];
     chunkStartRef.current = Date.now();
+    // A new chunk window starts here, so its meter reading does too.
+    measuredMsRef.current = 0;
+    audibleMsRef.current = 0;
     webmHeaderRef.current = null;
 
     mr.ondataavailable = (e) => {
@@ -730,6 +776,37 @@ export default function RecordPage() {
     lastDataAtRef.current = Date.now();
   }, [uploadChunk, router, flushFailedChunks]);
 
+  // Flush the running segment through the pause path so onstop uploads it and
+  // does NOT finalize/navigate, then advance the timeline past it. Shared by
+  // the two in-place restarts: stall recovery and the dead-microphone switch.
+  const flushSegmentForRestart = useCallback(async () => {
+    const mr = recorderRef.current;
+    if (mr && mr.state !== 'inactive') {
+      isPausingRef.current = true;
+      pauseOffsetRef.current = timeOffsetRef.current;
+      pauseHeaderRef.current = webmHeaderRef.current;
+      // Wait for the stop event before restarting. onstop captures
+      // chunkBlobsRef synchronously, and startRecorder reassigns that same
+      // ref — restarting without waiting drops the last buffered audio.
+      // The timeout means a genuinely wedged recorder cannot block recovery.
+      const flushed = new Promise<void>((resolve) => {
+        const done = () => resolve();
+        mr.addEventListener('stop', done, { once: true });
+        setTimeout(done, 2000);
+      });
+      try {
+        mr.stop();
+        await flushed;
+      } catch {
+        isPausingRef.current = false;
+      }
+    }
+    // Advance past the flushed audio so subsequent chunk offsets stay honest.
+    timeOffsetRef.current += (Date.now() - chunkStartRef.current) / 1000;
+
+    if (chunkTimerRef.current) { clearTimeout(chunkTimerRef.current); chunkTimerRef.current = null; }
+  }, []);
+
   // Heal a wedged recorder after the OS froze the page (screen lock, app
   // switch). The audio for the frozen window is already gone — no web API can
   // recover it — so the goal is to flush what we DID capture, restart cleanly,
@@ -749,33 +826,7 @@ export default function RecordPage() {
     if (source === 'teams' && (!meetingSourcesLive || !streamRef.current)) return;
     isRecoveringRef.current = true;
     try {
-      // Flush the existing segment through the pause path so onstop uploads it
-      // and does NOT finalize/navigate.
-      const mr = recorderRef.current;
-      if (mr && mr.state !== 'inactive') {
-        isPausingRef.current = true;
-        pauseOffsetRef.current = timeOffsetRef.current;
-        pauseHeaderRef.current = webmHeaderRef.current;
-        // Wait for the stop event before restarting. onstop captures
-        // chunkBlobsRef synchronously, and startRecorder reassigns that same
-        // ref — restarting without waiting drops the last buffered audio.
-        // The timeout means a genuinely wedged recorder cannot block recovery.
-        const flushed = new Promise<void>((resolve) => {
-          const done = () => resolve();
-          mr.addEventListener('stop', done, { once: true });
-          setTimeout(done, 2000);
-        });
-        try {
-          mr.stop();
-          await flushed;
-        } catch {
-          isPausingRef.current = false;
-        }
-      }
-      // Advance past the dead air so subsequent chunk offsets stay honest.
-      timeOffsetRef.current += (Date.now() - chunkStartRef.current) / 1000;
-
-      if (chunkTimerRef.current) { clearTimeout(chunkTimerRef.current); chunkTimerRef.current = null; }
+      await flushSegmentForRestart();
 
       let stream: MediaStream;
       if (source === 'teams') {
@@ -785,7 +836,7 @@ export default function RecordPage() {
       } else {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         stopVAD();
-        stream = await navigator.mediaDevices.getUserMedia({ audio: await getAudioConstraint() });
+        stream = await navigator.mediaDevices.getUserMedia({ audio: await micConstraint() });
         streamRef.current = stream;
         startVAD(stream);
       }
@@ -798,9 +849,58 @@ export default function RecordPage() {
     } finally {
       isRecoveringRef.current = false;
     }
-  }, [source, startVAD, stopVAD, startRecorder, rotateChunk]);
+  }, [source, startVAD, stopVAD, startRecorder, rotateChunk, flushSegmentForRestart]);
 
   useEffect(() => { recoverRef.current = recoverRecorder; }, [recoverRecorder]);
+
+  // The microphone has delivered pure digital silence since it opened: move to
+  // the next one on this machine rather than record nothing. Microphone mode
+  // only — in meeting mode the mic is one input of a mix whose other side is
+  // live, and swapping it would need the whole capture rebuilt.
+  const switchFromDeadMic = useCallback(async () => {
+    if (source !== 'web') return;
+    if (!isActiveRef.current || isPausingRef.current || isRecoveringRef.current) return;
+    const track = streamRef.current?.getAudioTracks()[0];
+    if (!track) return;
+    isRecoveringRef.current = true;
+    try {
+      const devices = await listMics().catch(() => []);
+      const deadId = track.getSettings().deviceId ?? '';
+      sameDeviceIds(deadId, track.label, devices).forEach((id) => deadMicsRef.current.add(id));
+      const constraint = await getFallbackAudioConstraint(deadMicsRef.current);
+      if (!constraint) return; // nothing else to try — the silent-mic warning stays up
+
+      // Open the replacement BEFORE touching the running recorder, so a
+      // refusal leaves the recording exactly as it was.
+      let next: MediaStream;
+      try {
+        next = await navigator.mediaDevices.getUserMedia({ audio: constraint });
+      } catch {
+        return;
+      }
+      if (!isActiveRef.current || isPausingRef.current) {
+        next.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      await flushSegmentForRestart();
+      const deadLabel = track.label;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      stopVAD();
+      streamRef.current = next;
+      startVAD(next);
+      startRecorder(next, mimeRef.current);
+      chunkTimerRef.current = setTimeout(rotateChunk, chunkMsRef.current);
+      const nextLabel = next.getAudioTracks()[0]?.label || 'another microphone';
+      setMicNotice(`${deadLabel || 'Your microphone'} was sending no sound, so recording switched to ${nextLabel}.`);
+    } catch (err) {
+      console.warn('[mic] could not switch from a silent microphone:', err instanceof Error ? err.message : err);
+    } finally {
+      isRecoveringRef.current = false;
+    }
+  }, [source, startVAD, stopVAD, startRecorder, rotateChunk, flushSegmentForRestart]);
+
+  useEffect(() => { deadMicRef.current = switchFromDeadMic; }, [switchFromDeadMic]);
   useEffect(() => { flushRef.current = rotateChunk; }, [rotateChunk]);
 
   const start = useCallback(async () => {
@@ -808,6 +908,8 @@ export default function RecordPage() {
     isStartingRef.current = true;
 
     setErrorMsg('');
+    setMicNotice('');
+    deadMicsRef.current = new Set();
     setSeconds(0);
     setChunksSaved(0);
     setChunksFailed(0);
@@ -826,7 +928,7 @@ export default function RecordPage() {
       // 'teams' = capture the meeting's system audio (+ mic); 'web' = mic only.
       const stream = source === 'teams'
         ? await getMeetingStream()
-        : await navigator.mediaDevices.getUserMedia({ audio: await getAudioConstraint() });
+        : await navigator.mediaDevices.getUserMedia({ audio: await micConstraint() });
       streamRef.current = stream;
 
       const createRes = await fetch('/api/recordings/create', {
@@ -914,7 +1016,7 @@ export default function RecordPage() {
     try {
       // Re-acquire the mic. The browser already granted permission this session,
       // so no dialog appears — iOS just reactivates the mic.
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: await getAudioConstraint() });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: await micConstraint() });
       streamRef.current = stream;
 
       startVAD(stream);
@@ -1175,6 +1277,12 @@ export default function RecordPage() {
             <p role="alert" className="text-sm font-medium text-red-500">
               We can&apos;t hear anything from your microphone{source === 'web' && micLabel ? ` (${micLabel})` : ''}.
               Check it isn&apos;t muted. If it&apos;s the wrong one, stop and choose another microphone in Settings.
+            </p>
+          )}
+
+          {state === 'recording' && micNotice && (
+            <p role="status" className="text-sm text-amber-500">
+              {micNotice}
             </p>
           )}
 
