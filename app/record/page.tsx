@@ -52,6 +52,13 @@ const SKIP_SPEECH_RATIO = 0.04; // skip upload if < 4% of chunk is speech
 // job is to notice, tell the user, and restart cleanly rather than sit there
 // showing a running timer over a dead recorder.
 const STALL_MS = 12_000;
+// Nothing above SILENCE_RMS for this long since the microphone was opened
+// means we are almost certainly recording a muted or wrong microphone. Seen
+// 25 Sep 2026: "testing testing testing" came back as the transcript "you",
+// Whisper's answer to silence, and nothing on screen had said the input was
+// dead. Warn only until the first sound is heard: once a mic has carried
+// sound it works, and a quiet stretch in a meeting is normal.
+const MIC_SILENT_MS = 8_000;
 const STALL_POLL_MS = 3_000;
 
 const MEETING_TYPES: { id: MeetingType; label: string; icon: string }[] = [
@@ -95,6 +102,8 @@ export default function RecordPage() {
   // a locked screen suspends the page and loses audio.
   const [wakeLockHeld,  setWakeLockHeld]  = useState<boolean | null>(null);
   const [stalled,       setStalled]       = useState(false);
+  const [micSilent,     setMicSilent]     = useState(false);
+  const [micLabel,      setMicLabel]      = useState('');
   // What this browser/OS can actually capture, and whether a meeting app looks
   // to be installed. Resolved on mount because both need `navigator`.
   const [capture,       setCapture]       = useState<CaptureSupport | null>(null);
@@ -157,6 +166,8 @@ export default function RecordPage() {
   const audioCtxRef     = useRef<AudioContext | null>(null);
   const vadIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const speechMsRef     = useRef(0); // ms of detected speech in current 2-min window
+  const heardRef        = useRef(false); // any sound since this mic stream opened
+  const vadStartedAtRef = useRef(0);     // 0 = VAD not running
 
   // Timer — runs only while actively recording (frozen while paused).
   // Derived from wall-clock timestamps rather than counting ticks: when the OS
@@ -184,9 +195,26 @@ export default function RecordPage() {
     return () => clearInterval(id);
   }, [state, isPaused]);
 
+  // Dead-microphone warning. Polled rather than set from the VAD tick so it
+  // also clears the moment recording pauses or stops.
+  useEffect(() => {
+    if (state !== 'recording' || isPaused) { setMicSilent(false); return; }
+    const id = setInterval(() => {
+      const startedAt = vadStartedAtRef.current;
+      setMicSilent(!heardRef.current && startedAt > 0 && Date.now() - startedAt > MIC_SILENT_MS);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [state, isPaused]);
+
   const startVAD = useCallback((stream: MediaStream) => {
+    heardRef.current = false;
+    vadStartedAtRef.current = 0;
+    setMicLabel(stream.getAudioTracks()[0]?.label ?? '');
     try {
       const ctx = new AudioContext();
+      // A context created outside the click can start suspended and would read
+      // pure zeros, which must not be mistaken for a dead microphone.
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
       const src = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 1024;
@@ -194,16 +222,22 @@ export default function RecordPage() {
       audioCtxRef.current = ctx;
       analyserRef.current = analyser;
       speechMsRef.current = 0;
+      vadStartedAtRef.current = Date.now();
 
       vadIntervalRef.current = setInterval(() => {
         const a = analyserRef.current;
         if (!a) return;
+        // Only time silence while the context is actually delivering samples.
+        if (ctx.state !== 'running' && !heardRef.current) vadStartedAtRef.current = Date.now();
         const buf = new Float32Array(a.fftSize);
         a.getFloatTimeDomainData(buf);
         let sum = 0;
         for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
         const rms = Math.sqrt(sum / buf.length);
-        if (rms > SILENCE_RMS) speechMsRef.current += 100;
+        if (rms > SILENCE_RMS) {
+          speechMsRef.current += 100;
+          heardRef.current = true;
+        }
         setVoiceLevel(Math.min(1, rms / 0.06));
       }, 100);
     } catch {
@@ -218,6 +252,7 @@ export default function RecordPage() {
     audioCtxRef.current = null;
     setVoiceLevel(0);
     speechMsRef.current = 0;
+    vadStartedAtRef.current = 0;
   }, []);
 
   // Release the display + mic source streams and the mixing context used by
@@ -1129,6 +1164,17 @@ export default function RecordPage() {
           {state === 'recording' && !isPaused && stalled && (
             <p className="text-sm font-medium text-red-500">
               Recording paused by your phone. Keep this screen on and open — tap the screen to resume capture.
+            </p>
+          )}
+
+          {/* The microphone has delivered nothing since it opened. Named, because
+              the usual cause is the wrong device (a docked headset that is
+              switched off, a muted laptop mic). No link: leaving this page
+              mid-recording would end the recording. */}
+          {state === 'recording' && !isPaused && micSilent && !stalled && (
+            <p role="alert" className="text-sm font-medium text-red-500">
+              We can&apos;t hear anything from your microphone{source === 'web' && micLabel ? ` (${micLabel})` : ''}.
+              Check it isn&apos;t muted. If it&apos;s the wrong one, stop and choose another microphone in Settings.
             </p>
           )}
 

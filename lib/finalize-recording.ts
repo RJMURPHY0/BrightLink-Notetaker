@@ -19,6 +19,7 @@ import { resolveGlobalSpeakers, matchProfilesDetailed, cosineSim, bestSpan, isAn
 import { applySpeakingSpans, fillGenericsFromRoster, normaliseSpans } from '@/lib/participant-names';
 import { createVoiceProfileTagged, loadProfilesForVersion } from '@/lib/voice-profile-store';
 import { archiveRecordingAudio } from '@/lib/audio-archive';
+import { speechContent, NO_SPEECH_OVERVIEW, SHORT_RECORDING_OVERVIEW } from '@/lib/speech-content';
 import type { ChunkForAlignment, ChunkVoiceData } from '@/lib/voice-id';
 import {
   transcribeChunk,
@@ -462,7 +463,7 @@ export async function analyzeAndCompleteRecording(recordingId: string): Promise<
   await ensureSchema(); // self-heal: make sure new Summary columns exist before writing
   const [transcript, recording, existingSummary] = await Promise.all([
     prisma.transcript.findUnique({ where: { recordingId } }),
-    prisma.recording.findUnique({ where: { id: recordingId }, select: { meetingType: true, title: true, createdAt: true, status: true, userId: true } }),
+    prisma.recording.findUnique({ where: { id: recordingId }, select: { meetingType: true, title: true, createdAt: true, status: true, userId: true, audioPath: true } }),
     prisma.summary.findUnique({ where: { recordingId }, select: { id: true } }),
   ]);
 
@@ -472,10 +473,27 @@ export async function analyzeAndCompleteRecording(recordingId: string): Promise<
     return { ok: true, completed: true, failedChunks: 0, pendingChunks: 0 };
   }
 
-  if (!transcript || !transcript.fullText.trim()) {
-    await prisma.recording.update({ where: { id: recordingId }, data: { status: 'failed' } }).catch(() => {});
-    return { ok: false, reason: 'No transcript to analyse.' };
+  // Every chunk was transcribed (or held no audio) and nothing was said: the
+  // chunk-failure checks upstream have already failed the recording if audio
+  // was actually lost, so reaching here empty means silence. That completes
+  // with a note saying so. It used to fail with "check your API keys", which
+  // sent people after a fault that did not exist and offered a Retry that
+  // could never succeed.
+  const content = speechContent(transcript?.fullText);
+  if (content === 'none') {
+    // Silence still leaves audio behind: the recorder always uploads its final
+    // stretch on stop. No transcript AND no audio means the upload itself was
+    // lost, which is a real failure and must not be reported as silence.
+    if (!transcript) {
+      const chunks = await prisma.chunkBlob.count({ where: { recordingId } });
+      if (chunks === 0 && !recording?.audioPath) {
+        await prisma.recording.update({ where: { id: recordingId }, data: { status: 'failed' } }).catch(() => {});
+        return { ok: false, reason: 'No audio reached the server.' };
+      }
+    }
+    return completeWithoutSpeech(recordingId, transcript?.segments ?? null);
   }
+  if (!transcript) return { ok: false, reason: 'No transcript to analyse.' };
 
   // 'auto' means the recorder did not pick a type, which is the normal case —
   // classify it from the transcript. An explicit choice is never overwritten.
@@ -502,7 +520,7 @@ export async function analyzeAndCompleteRecording(recordingId: string): Promise<
   }
 
   // Run analysis/title/topics in parallel with diarization, then resolve names
-  const [diarizedRaw, analysis, shortTitle, topics] = await Promise.all([
+  const [diarizedRaw, analysisRaw, shortTitle, topics] = await Promise.all([
     diarizeSegments(rawSegments),
     analyzeTranscript(transcript.fullText, meetingType, recording?.createdAt ?? new Date()),
     generateTitle(transcript.fullText),
@@ -536,6 +554,19 @@ export async function analyzeAndCompleteRecording(recordingId: string): Promise<
     data: { segments: JSON.stringify(finalSegments) },
   });
 
+  // A few words ("testing, testing") give the model nothing to summarise, and
+  // it answers with an empty overview or prose instead of JSON. For a
+  // recording that short that is the expected outcome, not a fault: keep the
+  // transcript and say why there are no notes, rather than failing it into a
+  // Retry that would get the same answer.
+  const analysisUnusable =
+    !analysisRaw.overview.trim() ||
+    analysisRaw.overview.startsWith('Analysis could not be completed') ||
+    looksLikeRawJsonOverview(analysisRaw.overview);
+  const analysis = analysisUnusable && content === 'short'
+    ? { overview: SHORT_RECORDING_OVERVIEW, keyPoints: [], actionItems: [], actionItemsDue: [], decisions: [] }
+    : analysisRaw;
+
   // B2: Don't persist empty or mock-mode analysis — mark failed so the recording can be retried
   if (
     !analysis.overview.trim() ||
@@ -552,11 +583,7 @@ export async function analyzeAndCompleteRecording(recordingId: string): Promise<
   // completed looking fine and shipped a wall of syntax to the user with three
   // empty sections beneath it. Anything shaped like JSON is a parse failure,
   // not a summary — fail it so the retry path gets a chance.
-  const looksLikeRawJson =
-    analysis.overview.trimStart().startsWith('```') ||
-    analysis.overview.trimStart().startsWith('{') ||
-    /"(overview|keyPoints|actionItems|decisions)"\s*:/.test(analysis.overview);
-  if (looksLikeRawJson) {
+  if (looksLikeRawJsonOverview(analysis.overview)) {
     await prisma.recording.update({ where: { id: recordingId }, data: { status: 'failed' } }).catch(() => {});
     return { ok: false, reason: 'AI analysis returned unparsed JSON — the model response was malformed or truncated.' };
   }
@@ -638,6 +665,49 @@ export async function analyzeAndCompleteRecording(recordingId: string): Promise<
     }).catch((err) => console.error('[finalize] teams notify failed:', err));
   }
 
+  return { ok: true, completed: true, failedChunks: 0, pendingChunks: 0 };
+}
+
+function looksLikeRawJsonOverview(overview: string): boolean {
+  return (
+    overview.trimStart().startsWith('```') ||
+    overview.trimStart().startsWith('{') ||
+    /"(overview|keyPoints|actionItems|decisions)"\s*:/.test(overview)
+  );
+}
+
+// Complete a recording in which nobody said anything. No model calls — there
+// is nothing to send them — and none of the post-meeting side effects
+// (Airtable backup, Teams post, search index): an empty meeting is not news.
+async function completeWithoutSpeech(recordingId: string, segmentsJson: string | null): Promise<FinalizeResult> {
+  let durationSecs = 0;
+  try {
+    const parsed = segmentsJson ? JSON.parse(segmentsJson) : [];
+    if (Array.isArray(parsed)) {
+      durationSecs = Math.round(parsed.reduce((m: number, s: { end?: number }) => Math.max(m, s.end ?? 0), 0));
+    }
+  } catch { /* no usable segments — leave the duration alone */ }
+
+  const empty = JSON.stringify([]);
+  await prisma.$transaction(async (tx) => {
+    await tx.summary.upsert({
+      where: { recordingId },
+      create: {
+        recordingId,
+        overview: NO_SPEECH_OVERVIEW,
+        keyPoints: empty, actionItems: empty, actionItemsDue: empty, decisions: empty, topics: empty,
+      },
+      update: {
+        overview: NO_SPEECH_OVERVIEW,
+        keyPoints: empty, actionItems: empty, actionItemsDue: empty, decisions: empty, topics: empty,
+      },
+    });
+    await tx.recording.update({
+      where: { id: recordingId },
+      data: { status: 'completed', ...(durationSecs > 0 ? { duration: durationSecs } : {}) },
+    });
+  });
+  console.warn(`[finalize] ${recordingId}: no speech detected — completed without analysis`);
   return { ok: true, completed: true, failedChunks: 0, pendingChunks: 0 };
 }
 

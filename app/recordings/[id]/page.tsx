@@ -178,7 +178,7 @@ export default async function RecordingPage({
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
             <div className="flex-1 space-y-3">
-              <span>Analysis failed — you can retry below. If it keeps failing, check your API keys in Settings.</span>
+              <span>Analysis failed — you can retry below. If it keeps failing, contact your administrator.</span>
               <RetryButton id={recording.id} />
             </div>
           </div>
