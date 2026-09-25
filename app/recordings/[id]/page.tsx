@@ -157,6 +157,9 @@ export default async function RecordingPage({
           </div>
           </div>
 
+          {/* Who was in this meeting: a button here, the picker drops down over the page. */}
+          <MeetingPeopleCard recordingId={recording.id} recordedAt={recording.createdAt.toISOString()} />
+
           <span className={`text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0 whitespace-nowrap ${
             isComplete   ? 'bg-emerald-500/10 text-emerald-400'
             : isFailed   ? 'bg-red-500/10 text-red-400'
@@ -206,9 +209,6 @@ export default async function RecordingPage({
             Speaker labels and notes follow the transcript. You can leave and come back.
           </div>
         )}
-
-        {/* Who was in this meeting: asked straight after Stop, while it processes. */}
-        <MeetingPeopleCard recordingId={recording.id} recordedAt={recording.createdAt.toISOString()} />
 
         {/* Three-column grid: Chat | AI Notes | Transcript */}
         <ActionItemsProvider

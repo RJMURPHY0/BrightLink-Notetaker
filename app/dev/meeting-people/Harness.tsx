@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import MeetingPeopleCard, { type PeopleRpcClient } from '@/app/recordings/[id]/MeetingPeopleCard';
 import ComingUp from '@/components/ComingUp';
+import MeetingPeopleButton from '@/components/MeetingPeopleButton';
 import type { CalendarResult } from '@/lib/crm-calendar';
 
 type P = { kind: 'member' | 'contact'; id: string; name: string; email?: string; avatar_url?: string | null; company?: string | null; subtitle?: string | null; first_name?: string; last_name?: string };
@@ -98,17 +99,37 @@ export default function Harness() {
   const [client, setClient] = useState<PeopleRpcClient | null>(null);
   useEffect(() => setClient(makeClient()), []);
   return (
-    <div className="min-h-screen bg-surface p-4">
-      <div className="max-w-[1100px] mx-auto">
-        <p className="text-xs text-ftc-mid mb-3">Harness: Sales Performance Discussion · 24 Sept 2026 (processing)</p>
+    <div className="min-h-screen bg-surface">
+      {/* Stand-in for the recording page's header bar, where the button lives. */}
+      <header className="sticky top-0 z-20 border-b border-surface-border bg-surface/80 backdrop-blur-md">
+        <div className="max-w-[1100px] mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-ftc-gray truncate">Sales Performance Discussion</p>
+            <p className="text-xs text-ftc-mid">Harness · 24 Sept 2026</p>
+          </div>
+          {client && (
+            <MeetingPeopleCard
+              recordingId="rec-harness" client={client} recordedAt={REC_AT}
+              calendarFetch={new URLSearchParams(location.search).get('calendar') === 'off' ? undefined : fakeCalendar}
+              devSpeak={new URLSearchParams(location.search).get('voice') ?? undefined}
+            />
+          )}
+          <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-emerald-500/10 text-emerald-400">completed</span>
+        </div>
+      </header>
+      <div className="max-w-[1100px] mx-auto p-4">
         {client && <ComingUp load={fakeCalendar} />}
+        {/* Stand-in for a recordings-list row: the people icon sits above folder and bin. */}
         {client && (
-          <MeetingPeopleCard
-            recordingId="rec-harness" client={client} recordedAt={REC_AT}
-            calendarFetch={new URLSearchParams(location.search).get('calendar') === 'off' ? undefined : fakeCalendar}
-            devSpeak={new URLSearchParams(location.search).get('voice') ?? undefined}
-          />
+          <div className="relative mb-4 rounded-2xl border border-surface-border bg-surface-card p-5 pr-20" data-harness-row>
+            <p className="text-sm font-semibold text-ftc-gray">Email System Workflow Discussion</p>
+            <p className="text-xs text-ftc-mid mt-1">24 Sept 2026, 14:49 · 37m</p>
+            <div className="absolute top-1/2 right-3 -translate-y-1/2 flex flex-col gap-1 items-center">
+              <MeetingPeopleButton recordingId="rec-harness" client={client} needsPeople />
+            </div>
+          </div>
         )}
+        <div className="rounded-2xl border border-surface-border bg-surface-card p-6 text-sm text-ftc-mid h-[600px]">AI notes</div>
       </div>
     </div>
   );

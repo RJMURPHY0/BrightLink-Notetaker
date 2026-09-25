@@ -2,9 +2,10 @@
 
 // "Who was in this meeting?" (2026-09-25)
 //
-// Shown at the top of a recording straight after Stop, while the meeting is
-// still processing, so the wait is used rather than blocked. The person who
-// recorded it links the people who were there:
+// A button in the recording's header bar (avatars + count, highlighted while
+// nobody is linked) that drops the picker down over the page. It never opens
+// by itself: the notes are what the page is for. The person who recorded it
+// links the people who were there:
 //   - colleagues (Your team): the meeting is then shared with them, read-only;
 //   - CRM contacts: the meeting then shows on their record's Meetings tab;
 //   - someone new: added as a contact on the spot.
@@ -19,14 +20,14 @@
 // permissions. Names heard in the call only ever SUGGEST; nothing links itself.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Check, Loader2, Mic, Search, UserPlus, Users, X } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Loader2, Mic, Search, UserPlus, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { parseSpokenNames, splitName, type SpokenName } from '@/lib/spoken-names';
 import { openCrmContact } from '@/lib/embed-bridge';
 import { CalendarUnavailable, eventForRecording, fetchCalendar, type CalendarEvent, type CalendarResult } from '@/lib/crm-calendar';
 
 type Kind = 'member' | 'contact';
-interface Person {
+export interface Person {
   kind: Kind;
   id: string;
   name: string | null;
@@ -36,13 +37,13 @@ interface Person {
   subtitle?: string | null;
   method?: string;
 }
-interface Loaded {
+export interface Loaded {
   access: 'full' | 'shared' | null;
   state: 'done' | 'skipped' | null;
   people: Person[];
   heard: string[];
 }
-interface SearchResult {
+export interface SearchResult {
   team: Person[];
   team_total: number;
   contacts: Person[];
@@ -58,8 +59,8 @@ interface MatchRow {
 }
 type Tab = 'all' | 'team' | 'contacts';
 
-const keyOf = (p: { kind: Kind; id: string }) => `${p.kind}:${p.id}`;
-const displayName = (p: Person) => p.name || p.email || 'Unnamed';
+export const keyOf = (p: { kind: Kind; id: string }) => `${p.kind}:${p.id}`;
+export const displayName = (p: Person) => p.name || p.email || 'Unnamed';
 
 // ─── Avatar: the photo when there is one, else coloured initials ────────────
 
@@ -72,7 +73,7 @@ function hue(seed: string): number {
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
   return h;
 }
-function Avatar({ person, size = 32 }: { person: Person; size?: number }) {
+export function Avatar({ person, size = 32 }: { person: Person; size?: number }) {
   const [failed, setFailed] = useState(false);
   const name = displayName(person);
   const style = { width: size, height: size, fontSize: Math.round(size * 0.38) };
@@ -100,7 +101,21 @@ function Avatar({ person, size = 32 }: { person: Person; size?: number }) {
   );
 }
 
-function TeamBadge() {
+/** The row tick, first in the row, as on the CRM's contact table (needs a `group` parent). */
+export function PickTick({ on, size = 28 }: { on: boolean; size?: number }) {
+  return (
+    <span
+      style={{ width: size, height: size }}
+      className={`rounded-md border flex items-center justify-center flex-shrink-0 transition-colors ${
+        on ? 'bg-green-500/15 border-green-500/40 text-green-400 group-hover:bg-green-500/25' : 'border-transparent group-hover:bg-surface-raised group-hover:border-surface-border'
+      }`}
+    >
+      {on ? <Check className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 rounded-[4px] border border-ftc-gray/60" />}
+    </span>
+  );
+}
+
+export function TeamBadge() {
   return (
     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-brand/10 text-brand flex-shrink-0">Team</span>
   );
@@ -169,9 +184,9 @@ export default function MeetingPeopleCard({ recordingId, recordedAt, client, dev
   const load = useCallback(async () => {
     const { data: res, error } = await supabase.rpc('meeting_people_get', { p_recording_id: recordingId });
     if (error) { setLoadError('Couldn’t load who was in this meeting.'); return; }
-    const d = res as Loaded;
-    setData(d);
-    if (d.access === 'full' && !d.state && d.people.length === 0) setExpanded(true);
+    // Never opens itself: the notes are what the page is for. The header
+    // button is highlighted instead while nobody is linked.
+    setData(res as Loaded);
   }, [supabase, recordingId]);
   useEffect(() => { void load(); }, [load]);
 
@@ -285,6 +300,22 @@ export default function MeetingPeopleCard({ recordingId, recordedAt, client, dev
     setData(res as Loaded);
     setExpanded(false);
   };
+
+  const close = () => { setExpanded(false); setQuery(''); setChoices([]); setUnmatched([]); };
+
+  // The panel is a dropdown over the notes: a press outside it or Escape
+  // closes it. Every pick is already saved, so closing loses nothing.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setExpanded(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpanded(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [expanded]);
 
   const reopen = async () => {
     setExpanded(true);
@@ -406,43 +437,70 @@ export default function MeetingPeopleCard({ recordingId, recordedAt, client, dev
       e.preventDefault();
       if (rows[highlight]) void toggle(rows[highlight]);
       else if (showCreate) startCreate(query.trim());
-    } else if (e.key === 'Escape') { setQuery(''); }
+    } else if (e.key === 'Escape' && query) { e.stopPropagation(); setQuery(''); }
   };
 
   if (loadError) {
-    return <p className="mb-4 text-xs text-red-400">{loadError} <button className="underline" onClick={() => { setLoadError(''); void load(); }}>Try again</button></p>;
+    return (
+      <button type="button" onClick={() => { setLoadError(''); void load(); }} title={loadError}
+        className="h-8 flex-shrink-0 flex items-center gap-1.5 rounded-full border border-red-500/30 px-3 text-xs text-red-400 touch-manipulation">
+        <Users className="w-3.5 h-3.5" /> Try again
+      </button>
+    );
   }
   if (!data || data.access === null) return null;
 
   const people = data.people;
   const readOnly = data.access !== 'full';
+  if (readOnly && people.length === 0) return null;
 
-  // ── Folded: an avatar row under the title ──
-  if (!expanded) {
-    if (readOnly && people.length === 0) return null;
+  // ── The header button: who was there, one press from the title ──
+  // Highlighted while nobody is linked (and not skipped), so it is obvious
+  // without taking any room from the notes.
+  const untagged = !readOnly && people.length === 0 && data.state !== 'skipped';
+  const trigger = (
+    <button
+      type="button"
+      onClick={() => (expanded ? setExpanded(false) : void reopen())}
+      aria-expanded={expanded}
+      aria-haspopup="dialog"
+      title={readOnly ? 'Shared with you' : 'Who was in this meeting'}
+      className={`h-8 flex items-center gap-2 rounded-full border pl-1.5 pr-2.5 text-xs font-medium transition-colors touch-manipulation ${
+        untagged
+          ? 'border-brand/50 bg-brand/10 text-brand hover:bg-brand/15'
+          : expanded
+            ? 'border-brand/50 bg-surface-raised text-ftc-gray'
+            : 'border-surface-border bg-surface-raised text-ftc-gray hover:border-brand/40'
+      }`}
+    >
+      {people.length > 0 ? <AvatarStack people={people} /> : <Users className="w-4 h-4 ml-1" />}
+      <span className="hidden sm:inline whitespace-nowrap">
+        {people.length > 0 ? `${people.length} in meeting` : 'Who was there?'}
+      </span>
+      <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+    </button>
+  );
+  // Phone: pinned under the bar at full width (the header's backdrop filter
+  // makes it the containing block, so `fixed` hangs off the bar). Wider: a
+  // dropdown under the button.
+  const panelClass = 'fixed inset-x-3 top-[4.25rem] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 z-40 sm:w-[min(640px,calc(100vw-2rem))] max-h-[calc(100dvh-5.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-surface-border bg-surface-card p-4 shadow-2xl shadow-black/50';
+
+  if (!expanded) return <div ref={wrapRef} className="relative flex-shrink-0">{trigger}</div>;
+
+  // ── Shared with you: who was there, read-only ──
+  if (readOnly) {
     return (
-      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-surface-border bg-surface-card px-4 py-2.5">
-        <span className="text-xs font-semibold uppercase tracking-widest text-ftc-mid flex items-center gap-1.5">
-          <Users className="w-3.5 h-3.5 text-brand" /> In this meeting
-        </span>
-        {people.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            {people.map((p) => (
-              <PersonChip key={keyOf(p)} person={p} />
-            ))}
-          </div>
-        ) : (
-          <span className="text-xs text-ftc-mid">No people linked</span>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {readOnly ? (
+      <div ref={wrapRef} className="relative flex-shrink-0">
+        {trigger}
+        <section className={panelClass} aria-label="Who was in this meeting">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-ftc-gray">In this meeting</h2>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-surface-raised text-ftc-mid">Shared with you</span>
-          ) : (
-            <button type="button" onClick={reopen} className="text-xs font-medium text-brand hover:underline touch-manipulation">
-              {people.length > 0 ? 'Edit' : 'Link people'}
-            </button>
-          )}
-        </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {people.map((p) => <PersonChip key={keyOf(p)} person={p} />)}
+          </div>
+        </section>
       </div>
     );
   }
@@ -454,7 +512,9 @@ export default function MeetingPeopleCard({ recordingId, recordedAt, client, dev
   const visibleSuggestions = suggestions.filter((s) => !picked.has(keyOf(s)) && !invited.has(keyOf(s)));
 
   return (
-    <section className="mb-4 rounded-2xl border border-brand/30 bg-surface-card p-4 sm:p-5" aria-label="Who was in this meeting">
+    <div ref={wrapRef} className="relative flex-shrink-0">
+    {trigger}
+    <section className={panelClass} role="dialog" aria-label="Who was in this meeting">
       <div className="flex items-start gap-3 mb-3">
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold text-ftc-gray">Who was in this meeting?</h2>
@@ -712,10 +772,12 @@ export default function MeetingPeopleCard({ recordingId, recordedAt, client, dev
                 aria-selected={on}
                 onClick={() => toggle(p)}
                 onMouseEnter={() => setHighlight(i)}
-                className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left transition-colors touch-manipulation ${
-                  i === highlight ? 'bg-surface-raised' : ''
+                className={`group w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left transition-colors touch-manipulation ${
+                  on ? 'bg-green-500/[0.07]' : i === highlight ? 'bg-surface-raised' : ''
                 }`}
               >
+                {/* The tick leads the row, as on the CRM's contact table. */}
+                <PickTick on={on} />
                 <Avatar person={p} />
                 <span className="flex-1 min-w-0">
                   <span className="flex items-center gap-1.5">
@@ -725,11 +787,6 @@ export default function MeetingPeopleCard({ recordingId, recordedAt, client, dev
                   <span className="block text-xs text-ftc-mid truncate">
                     {p.subtitle || (p.kind === 'member' ? p.email : p.email) || ''}
                   </span>
-                </span>
-                <span className={`w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 ${
-                  on ? 'bg-brand border-brand text-white' : 'border-surface-muted text-transparent'
-                }`}>
-                  <Check className="w-3 h-3" />
                 </span>
               </button>
             </li>
@@ -769,7 +826,7 @@ export default function MeetingPeopleCard({ recordingId, recordedAt, client, dev
         ) : (
           <button
             type="button"
-            onClick={() => { setExpanded(false); setQuery(''); setChoices([]); setUnmatched([]); setCreating(null); }}
+            onClick={() => { close(); setCreating(null); }}
             className="text-xs font-semibold bg-brand text-white px-4 py-2 rounded-lg touch-manipulation"
           >
             Done
@@ -777,6 +834,26 @@ export default function MeetingPeopleCard({ recordingId, recordedAt, client, dev
         )}
       </div>
     </section>
+    </div>
+  );
+}
+
+/** Up to four faces, overlapping, then "+N". */
+function AvatarStack({ people }: { people: Person[] }) {
+  const shown = people.slice(0, 4);
+  return (
+    <span className="flex items-center">
+      {shown.map((p, i) => (
+        <span key={keyOf(p)} className={`rounded-full ring-2 ring-surface-raised ${i > 0 ? '-ml-1.5' : ''}`}>
+          <Avatar person={p} size={22} />
+        </span>
+      ))}
+      {people.length > shown.length && (
+        <span className="-ml-1.5 h-[22px] min-w-[22px] px-1 rounded-full ring-2 ring-surface-raised bg-surface-border text-[10px] font-semibold text-ftc-gray flex items-center justify-center">
+          +{people.length - shown.length}
+        </span>
+      )}
+    </span>
   );
 }
 

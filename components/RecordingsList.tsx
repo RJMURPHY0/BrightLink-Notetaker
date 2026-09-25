@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AssignFolderButton from './AssignFolderButton';
+import MeetingPeopleButton from './MeetingPeopleButton';
 import QuickDeleteButton from './QuickDeleteButton';
 import { Folder, ChevronDown, Trash2, Check, Mic, User, CircleCheck, Zap, Download, X } from 'lucide-react';
 import { providerBadge } from '@/lib/meeting-provider';
@@ -527,6 +528,7 @@ export default function RecordingsList({
 
               {!isSelecting && (
                 <div className="absolute top-1/2 right-3 -translate-y-1/2 z-20 flex flex-col gap-1 items-center">
+                  <MeetingPeopleButton recordingId={rec.id} needsPeople={rec.needsPeople} />
                   <AssignFolderButton
                     recordingId={rec.id}
                     currentFolderId={rec.folderId}

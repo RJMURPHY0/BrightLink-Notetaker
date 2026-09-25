@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { FolderPlus } from 'lucide-react';
 
 export default function NewFolderButton() {
   const router = useRouter();
@@ -28,10 +28,12 @@ export default function NewFolderButton() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-ftc-mid hover:text-ftc-gray hover:bg-surface-border transition-colors border border-dashed border-surface-border touch-manipulation"
+        // Matches the CRM's "New Folder" (Lead Scraper): solid outline, folder
+        // icon, brand-warming hover, so the whole app reads as one design.
+        className="flex items-center gap-2 h-8 px-3 rounded-xl text-xs font-medium text-ftc-gray border border-surface-border hover:border-brand/40 hover:bg-surface-raised transition-colors touch-manipulation"
       >
-        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-        New folder
+        <FolderPlus className="w-4 h-4" strokeWidth={2} />
+        New Folder
       </button>
     );
   }

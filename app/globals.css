@@ -476,3 +476,12 @@
 html[data-embed="1"] [data-nt-chrome] {
   display: none !important;
 }
+
+/* Standalone the Notetaker fills a whole browser tab; inside BrightLink it sits
+   in a frame beside the sidebar, where that same scale reads oversized next to
+   the denser CRM. Scale the embedded document down a notch so it sits at the
+   CRM's density. Chromium-only property, which is all BrightLink's frame ever
+   is. Tune this one number if it needs to be tighter or looser. */
+html[data-embed="1"] {
+  zoom: 0.9;
+}
