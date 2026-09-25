@@ -106,7 +106,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/apple-touch-icon') ||
     pathname.startsWith('/manifest') ||
     pathname.startsWith('/sw.js') ||
-    pathname.startsWith('/logo');
+    pathname.startsWith('/logo') ||
+    // No-login UI harnesses (app/dev/*). Never public in production, where the
+    // pages themselves also answer 404.
+    (process.env.NODE_ENV !== 'production' && pathname.startsWith('/dev/'));
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

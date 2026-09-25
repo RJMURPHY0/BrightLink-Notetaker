@@ -5,6 +5,7 @@ import { prisma, withDbRetry } from '@/lib/db';
 import NewFolderButton from '@/components/NewFolderButton';
 import FolderActions from '@/components/FolderActions';
 import RecordingsList from '@/components/RecordingsList';
+import ComingUp from '@/components/ComingUp';
 import LogoutButton from '@/components/LogoutButton';
 import AdminFilters from '@/components/AdminFilters';
 import SearchBar from '@/components/SearchBar';
@@ -13,6 +14,7 @@ import { measuredCost } from '@/lib/finalize-progress';
 import { getAuthUser } from '@/lib/auth';
 import { parseFilters, filtersToWhere, filtersToOrderBy, filtersToParams, FILTER_KEYS } from '@/lib/recording-filters';
 import { ensureSchema } from '@/lib/ensure-schema';
+import { sharedRecordingIds, recordingsNeedingPeople } from '@/lib/meeting-share';
 import { SpotlightCard, GlowCard } from '@/components/ui/spotlight-card';
 import {
   getOrganisations,
@@ -182,14 +184,23 @@ export default async function Home({
 
   // What the list is actually showing, reused by the tiles so a filtered view
   // can't sit under counts describing a different set of meetings.
-  const listWhere = {
-    ...(activeFolderId ? { folderId: activeFolderId } : { folderId: null }),
-    ...userScope,
-    deletedAt: null,
-    // Search-bar filters go in under AND so their own OR / relation clauses
-    // can never collide with the scope conditions above.
-    AND: [filterWhere],
-  };
+  // Meetings a colleague tagged me in join my own list (read-only on open).
+  // Only in the personal, unfoldered view: they live in the owner's folders.
+  const sharedIds = scopedToSelf && !activeFolderId ? await sharedRecordingIds(userId) : [];
+
+  const listWhere = sharedIds.length > 0
+    ? {
+        deletedAt: null,
+        AND: [filterWhere, { OR: [{ folderId: null, ...userScope }, { id: { in: sharedIds } }] }],
+      }
+    : {
+        ...(activeFolderId ? { folderId: activeFolderId } : { folderId: null }),
+        ...userScope,
+        deletedAt: null,
+        // Search-bar filters go in under AND so their own OR / relation clauses
+        // can never collide with the scope conditions above.
+        AND: [filterWhere],
+      };
 
   const [folderResult, recordingResult, countsRows] = await Promise.all([
     withDbRetry(() => prisma.folder.findMany({
@@ -264,11 +275,19 @@ export default async function Home({
   // time "who recorded this" is ambiguous, and it keeps the personal view at
   // one query. Also names the person in the heading for a single-assignee view.
   const showOwner = !scopedToSelf && !assigneeUserId;
+  const sharedOwnerIds = recordings
+    .filter(r => r.userId && r.userId !== userId && sharedIds.includes(r.id))
+    .map(r => r.userId as string);
   const nameIds = [
     ...(showOwner ? recordings.map(r => r.userId).filter((v): v is string => !!v) : []),
     ...(assigneeUserId ? [assigneeUserId] : []),
+    ...sharedOwnerIds,
   ];
-  const ownerNames = nameIds.length > 0 ? await getMemberNames(nameIds) : {};
+  const [ownerNames, needingPeople] = await Promise.all([
+    nameIds.length > 0 ? getMemberNames(nameIds) : Promise.resolve({} as Record<string, string>),
+    // "Link people" marker: my own meetings nobody has linked people to or skipped.
+    recordingsNeedingPeople(recordings.filter(r => r.userId === userId && r.status !== 'failed').map(r => r.id)),
+  ]);
 
   const scopeHeading = scopedToSelf
     ? 'My Recordings'
@@ -429,6 +448,9 @@ export default async function Home({
             <SearchBar canSeeAll={canSeeAll} />
           </div>
         )}
+
+        {/* The next few meetings in my own calendar (personal view only). */}
+        {scopedToSelf && !activeFolderId && <ComingUp />}
 
         {/* ── Breadcrumb / heading row ── */}
         <div className="flex items-center justify-between gap-3 mb-5">
@@ -627,6 +649,10 @@ export default async function Home({
                 ownerName: showOwner
                   ? (rec.userId ? ownerNames[rec.userId] ?? 'Unknown' : 'Unassigned')
                   : null,
+                sharedBy: !showOwner && rec.userId && rec.userId !== userId && sharedIds.includes(rec.id)
+                  ? ownerNames[rec.userId] ?? 'a colleague'
+                  : null,
+                needsPeople: needingPeople.has(rec.id),
               };
             })}
             folders={folderList}

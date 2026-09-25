@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/db';
 import { getAuthUser, canAccessRecording } from '@/lib/auth';
+import { isSharedWith } from '@/lib/meeting-share';
 import { logAudit, requestIp } from '@/lib/audit';
 import { rateLimit } from '@/lib/rate-limit';
 import { parseDueArray, formatDue } from '@/lib/action-items';
@@ -64,7 +65,8 @@ export async function POST(
     if (!recording || recording.deletedAt) {
       return NextResponse.json({ error: 'Recording not found.' }, { status: 404 });
     }
-    if (!canAccessRecording(recording, user)) {
+    // A colleague tagged in the meeting may read it (lib/meeting-share.ts).
+    if (!canAccessRecording(recording, user) && !(await isSharedWith(params.id, user?.id))) {
       return NextResponse.json({ error: 'Not allowed.' }, { status: 403 });
     }
 

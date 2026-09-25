@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getAuthUser, canAccessRecording } from '@/lib/auth';
+import { isSharedWith } from '@/lib/meeting-share';
 import { measuredCost } from '@/lib/finalize-progress';
 import {
   asStage, remainingSeconds, stageProgress, STAGE_LABEL,
@@ -38,7 +39,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     .catch(() => null);
 
   if (!rec) return NextResponse.json({ status: 'unknown', hasTranscript: false }, { status: 404 });
-  if (!canAccessRecording(rec, user)) {
+  // A colleague tagged in the meeting may read it (lib/meeting-share.ts).
+  if (!canAccessRecording(rec, user) && !(await isSharedWith(params.id, user?.id))) {
     return NextResponse.json({ error: 'Not allowed.' }, { status: 403 });
   }
 

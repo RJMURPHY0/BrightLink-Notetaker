@@ -37,6 +37,10 @@ interface Recording {
   // Who recorded it. Only set when the list spans more than one person
   // (admin "Everyone" / company / team views) — null in a personal view.
   ownerName?: string | null;
+  // A colleague's meeting I was tagged in (read-only), and who recorded it.
+  sharedBy?: string | null;
+  // Nobody has said who was in it yet (neither linked nor skipped).
+  needsPeople?: boolean;
 }
 
 function formatDuration(seconds: number): string {
@@ -447,6 +451,11 @@ export default function RecordingsList({
                         {badge && (
                           <span className={`flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${badge.className}`}>{badge.label}</span>
                         )}
+                        {rec.needsPeople && (
+                          <span className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-brand/10 text-brand" title="Say who was in this meeting">
+                            Link people
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs mt-0.5 text-ftc-mid flex items-center gap-1.5">
                         {formatDate(rec.createdAt)}
@@ -454,6 +463,15 @@ export default function RecordingsList({
                           <>
                             <span className="text-surface-muted">·</span>
                             <span>{formatDuration(rec.duration)}</span>
+                          </>
+                        )}
+                        {rec.sharedBy && (
+                          <>
+                            <span className="text-surface-muted">·</span>
+                            <span className="flex items-center gap-1 truncate">
+                              <User className="w-3 h-3 flex-shrink-0" />
+                              Shared by {rec.sharedBy}
+                            </span>
                           </>
                         )}
                         {rec.ownerName && (

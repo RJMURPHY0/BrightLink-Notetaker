@@ -5,6 +5,7 @@ import type { TopicSection } from '@/lib/ai';
 import { useActionItems } from './ActionItemsContext';
 import DueDatePicker from './DueDatePicker';
 import { useTranscriptFocus } from './TranscriptFocusContext';
+import { useReadOnly } from './ReadOnlyContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ function SectionCard({
   saving:    boolean;
   children:  React.ReactNode;
 }) {
+  const readOnly = useReadOnly();
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card p-5">
       <div className="flex items-center mb-4">
@@ -78,7 +80,7 @@ function SectionCard({
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
-        ) : (
+        ) : readOnly ? null : (
           <button
             onClick={onEdit}
             title={`Edit ${title}`}
@@ -196,6 +198,7 @@ export default function EditableAINotes({
   highlightActionIndex?: number | null;
 }) {
   const actionItems = useActionItems();
+  const readOnly = useReadOnly();
   const [flashIndex, setFlashIndex] = useState<number | null>(null);
 
   // Opened from the CRM on one action item: bring it into view and outline it,
@@ -430,6 +433,7 @@ export default function EditableAINotes({
                   <button
                     type="button"
                     onClick={() => actionItems.toggleChecked(i)}
+                    disabled={readOnly}
                     title={done ? 'Mark incomplete' : 'Mark complete'}
                     className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors
                       ${done
@@ -448,11 +452,11 @@ export default function EditableAINotes({
                     >
                       {item}
                     </span>
-                    <DueDatePicker
+                    {!readOnly && <DueDatePicker
                       iso={actionItems.due[i] ?? null}
                       done={done}
                       onChange={(next) => actionItems.setDue(i, next)}
-                    />
+                    />}
                   </div>
                 </li>
               );

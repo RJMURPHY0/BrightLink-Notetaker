@@ -20,6 +20,9 @@ import { peaksFromSegments } from '@/lib/audio-peaks';
 import { ensureSchema } from '@/lib/ensure-schema';
 import { getAuthUser, canAccessRecording } from '@/lib/auth';
 import EmbedTitle from '@/components/EmbedTitle';
+import { isSharedWith } from '@/lib/meeting-share';
+import { ReadOnlyProvider } from './ReadOnlyContext';
+import MeetingPeopleCard from './MeetingPeopleCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +69,13 @@ export default async function RecordingPage({
   // access.js only ever policed app/api/recordings/[id], so nothing caught it.
   // notFound() rather than a 403: whether a meeting exists is itself something
   // the wrong viewer should not learn.
-  if (!canAccessRecording(recording, authUser)) notFound();
+  //
+  // A colleague the owner tagged as having been in the meeting may also open
+  // it, read-only (lib/meeting-share.ts). Every write route still checks
+  // canAccessRecording alone, so "read-only" holds on the server too.
+  const fullAccess = canAccessRecording(recording, authUser);
+  const readOnly = !fullAccess && await isSharedWith(recording.id, authUser?.id);
+  if (!fullAccess && !readOnly) notFound();
 
   function safeJson<T>(value: string | null | undefined, fallback: T): T {
     if (!value) return fallback;
@@ -120,6 +129,7 @@ export default async function RecordingPage({
   const sourceBadge = providerBadge(recording.source, recording.meetingProvider);
 
   return (
+    <ReadOnlyProvider readOnly={readOnly}>
     <div className="detail-shell min-h-screen flex flex-col bg-surface">
       {/* Inside BrightLink, its browser tab reads this meeting's name. */}
       <EmbedTitle title={recording.title} />
@@ -157,13 +167,13 @@ export default async function RecordingPage({
           </span>
 
           {/* Delete — tucked in header, requires 2 clicks */}
-          <DeleteButton id={recording.id} />
+          {!readOnly && <DeleteButton id={recording.id} />}
         </div>
       </header>
 
       <main className="detail-main max-w-[1800px] mx-auto w-full px-4 py-6 flex-1">
         {/* Auto-retry + auto-refresh when queued or processing */}
-        {(isUploading || isProcessing) && (
+        {(isUploading || isProcessing) && !readOnly && (
           <ProcessingPoller
             id={recording.id}
             initialStatus={recording.status}
@@ -179,7 +189,7 @@ export default async function RecordingPage({
             </svg>
             <div className="flex-1 space-y-3">
               <span>Analysis failed — you can retry below. If it keeps failing, check your API keys in Settings.</span>
-              <RetryButton id={recording.id} />
+              {!readOnly && <RetryButton id={recording.id} />}
             </div>
           </div>
         )}
@@ -187,7 +197,7 @@ export default async function RecordingPage({
           <div className="flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 mb-4 text-blue-300 text-sm">
             <div className="flex-1 space-y-3">
               <span>This page updates itself. You can leave and come back.</span>
-              <RetryButton id={recording.id} />
+              {!readOnly && <RetryButton id={recording.id} />}
             </div>
           </div>
         )}
@@ -196,6 +206,9 @@ export default async function RecordingPage({
             Speaker labels and notes follow the transcript. You can leave and come back.
           </div>
         )}
+
+        {/* Who was in this meeting: asked straight after Stop, while it processes. */}
+        <MeetingPeopleCard recordingId={recording.id} recordedAt={recording.createdAt.toISOString()} />
 
         {/* Three-column grid: Chat | AI Notes | Transcript */}
         <ActionItemsProvider
@@ -259,7 +272,7 @@ export default async function RecordingPage({
 
               {recording.transcript ? (
                 <>
-                  {hasSpeakers && (
+                  {hasSpeakers && !readOnly && (
                     <SpeakerPanel recordingId={recording.id} speakers={speakerOrder} />
                   )}
                   {hasSpeakers ? (
@@ -294,5 +307,6 @@ export default async function RecordingPage({
         </ActionItemsProvider>
       </main>
     </div>
+    </ReadOnlyProvider>
   );
 }

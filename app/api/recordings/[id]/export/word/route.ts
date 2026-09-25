@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getAuthUser, canAccessRecording } from '@/lib/auth';
+import { isSharedWith } from '@/lib/meeting-share';
 import { logAudit, requestIp } from '@/lib/audit';
 import { meetingDocFrom, exportFilename, readDocLogo } from '@/lib/export-doc';
 import { buildMeetingDocx } from '@/lib/export-docx';
@@ -27,7 +28,8 @@ export async function GET(
     return NextResponse.json({ error: 'Recording not found.' }, { status: 404 });
   }
   // Same visibility rule as the recording page: owner, unclaimed, or can-see-all.
-  if (!canAccessRecording(recording, user)) {
+  // A colleague tagged in the meeting may read it (lib/meeting-share.ts).
+  if (!canAccessRecording(recording, user) && !(await isSharedWith(params.id, user?.id))) {
     return NextResponse.json({ error: 'Not allowed.' }, { status: 403 });
   }
   if (!recording.summary) {

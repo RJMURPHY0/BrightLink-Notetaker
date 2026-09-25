@@ -10,6 +10,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { MEETING_TYPES, type MeetingTypeFilter } from '@/lib/recording-filters';
+import { useReadOnly } from './ReadOnlyContext';
 
 const LABELS: Record<MeetingTypeFilter, string> = {
   general: '💬 General', standup: '🗓 Standup', sales: '📈 Sales',
@@ -27,6 +28,7 @@ export default function MeetingTypeBadge({ id, initial }: { id: string; initial:
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const readOnly = useReadOnly();
 
   useEffect(() => {
     if (!open) return;
@@ -63,7 +65,7 @@ export default function MeetingTypeBadge({ id, initial }: { id: string; initial:
         type="button"
         onClick={() => setOpen(o => !o)}
         title="Meeting type"
-        disabled={saving}
+        disabled={saving || readOnly}
         className={`text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-surface-border
                     text-ftc-mid hover:text-ftc-gray hover:border-brand/40 transition-colors
                     ${saving ? 'opacity-60' : ''}`}

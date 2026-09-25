@@ -39,7 +39,9 @@ export type GuestMessage =
   | { type: 'navigated'; path: string; title: string }
   | { type: 'title'; title: string }
   | { type: 'recording'; state: RecordingState | null; seconds: number }
-  | { type: 'shortcut'; key: 'search' };
+  | { type: 'shortcut'; key: 'search' }
+  /** A person chip in a meeting was clicked: open their CRM record over the page. */
+  | { type: 'open-contact'; contactId: string };
 
 /** Fired on window when BrightLink asks the recorder to stop and save. */
 export const STOP_RECORDING_EVENT = 'bl:stop-recording';
@@ -186,4 +188,21 @@ export function reportTitle(title: string): void {
 export function applyHostTheme(theme: BridgeTheme): void {
   document.documentElement.classList.toggle('dark', theme === 'dark');
   try { sessionStorage.setItem('bl-theme', theme); } catch { /* storage blocked */ }
+}
+
+/** Where BrightLink's CRM lives when this app runs on its own (not framed). */
+export const CRM_ORIGIN = (process.env.NEXT_PUBLIC_CRM_ORIGIN ?? 'https://app.brightlink.io').replace(/\/+$/, '');
+
+/**
+ * Open a CRM contact. Inside BrightLink, ask the host to open the record over
+ * the page (so the meeting stays where it is). On its own, open the CRM in a
+ * new tab on that record's Meetings tab.
+ */
+export function openCrmContact(contactId: string): void {
+  if (!/^[0-9a-f-]{36}$/i.test(contactId)) return;
+  if (isEmbedded()) {
+    postToHost({ type: 'open-contact', contactId });
+    return;
+  }
+  window.open(`${CRM_ORIGIN}/crm/pipeline?contact=${contactId}&tab=meetings`, '_blank', 'noopener');
 }

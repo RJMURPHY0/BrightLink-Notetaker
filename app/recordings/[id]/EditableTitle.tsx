@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { reportTitle, setEmbedTitle } from '@/lib/embed-bridge';
+import { useReadOnly } from './ReadOnlyContext';
 
 export default function EditableTitle({ id, initial }: { id: string; initial: string }) {
   const [title, setTitle] = useState(initial);
@@ -9,6 +10,7 @@ export default function EditableTitle({ id, initial }: { id: string; initial: st
   const [draft, setDraft] = useState(initial);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const readOnly = useReadOnly();
 
   const startEdit = () => {
     setDraft(title);
@@ -56,6 +58,10 @@ export default function EditableTitle({ id, initial }: { id: string; initial: st
         className="font-semibold text-sm text-ftc-gray bg-surface-raised border border-brand rounded-lg px-2 py-0.5 outline-none w-full max-w-full sm:max-w-xs"
       />
     );
+  }
+
+  if (readOnly) {
+    return <span className="block min-w-0 truncate font-semibold text-sm text-ftc-gray">{title}</span>;
   }
 
   return (
